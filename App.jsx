@@ -9,22 +9,49 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 
 const UNITS = {
   micro: [
-    { n: 1, title: "Basic economic concepts", weight: 13, blurb: "Scarcity, opportunity cost, PPC, comparative advantage, marginal analysis" },
-    { n: 2, title: "Supply and demand", weight: 22, blurb: "Shifts, equilibrium, elasticity, price controls, consumer and producer surplus" },
-    { n: 3, title: "Production, cost, and perfect competition", weight: 23, blurb: "Short-run cost curves, profit maximization, shutdown, long-run entry and exit" },
-    { n: 4, title: "Imperfect competition", weight: 18, blurb: "Monopoly, price discrimination, monopolistic competition, oligopoly, game theory" },
-    { n: 5, title: "Factor markets", weight: 11, blurb: "Derived demand, marginal revenue product, least-cost hiring, monopsony" },
-    { n: 6, title: "Market failure and the role of government", weight: 10, blurb: "Externalities, public goods, taxes and subsidies, inequality" },
+    { n: 1, title: "Supply, demand and elasticity", weight: 13, blurb: "Trade, supply and demand, elasticity, marginal analysis" },
+    { n: 2, title: "Surplus, taxes and trade", weight: 22, blurb: "Surpluses, deadweight loss, price controls, taxes, tariffs" },
+    { n: 3, title: "Production, cost and perfect competition", weight: 23, blurb: "Production function, cost curves, economies of scale, perfect competition" },
+    { n: 4, title: "Imperfect competition", weight: 18, blurb: "Monopoly, price discrimination, oligopoly, game theory, monopolistic competition" },
+    { n: 5, title: "Factor markets", weight: 11, blurb: "Factor market basics, resource combinations, monopsony" },
+    { n: 6, title: "Market failure and inequality", weight: 10, blurb: "Externalities, types of goods, government intervention, inequality" },
   ],
   macro: [
-    { n: 1, title: "Basic economic concepts", weight: 8, blurb: "Scarcity, PPC, comparative advantage, the circular flow model" },
-    { n: 2, title: "Economic indicators and the business cycle", weight: 14, blurb: "GDP, unemployment, inflation, real versus nominal, the business cycle" },
-    { n: 3, title: "National income and price determination", weight: 22, blurb: "AD, SRAS, LRAS, multipliers, output gaps, fiscal policy" },
-    { n: 4, title: "Financial sector", weight: 20, blurb: "Money, banking, the money market, loanable funds, monetary policy" },
-    { n: 5, title: "Long-run consequences of stabilization policies", weight: 25, blurb: "Phillips curve, crowding out, deficits, long-run growth" },
-    { n: 6, title: "Open economy: international trade and finance", weight: 11, blurb: "Balance of payments, foreign exchange markets, capital flows" },
+    { n: 1, title: "Basic economic concepts", weight: 8, blurb: "PPC, opportunity cost, comparative advantage" },
+    { n: 2, title: "Economic indicators and the business cycle", weight: 14, blurb: "GDP, unemployment, inflation, the business cycle" },
+    { n: 3, title: "National income and price determination", weight: 22, blurb: "AD-AS, multipliers, fiscal policy and automatic stabilizers" },
+    { n: 4, title: "Financial sector", weight: 20, blurb: "Money, balance sheets, money market, monetary policy, loanable funds" },
+    { n: 5, title: "Long-run consequences of stabilization policies", weight: 25, blurb: "Phillips curve, quantity theory, debt, crowding out, growth" },
+    { n: 6, title: "Open economy: international trade and finance", weight: 11, blurb: "Balance of payments, foreign exchange, capital flows" },
   ],
 };
+
+/* College Board CED topic breakdown. Titles can be edited here if the
+   Board revises its wording; the numbers are what the exam uses. */
+const TOPICS = {
+  micro: {
+    1: [["1.1","Trade, supply and demand"],["1.2","Elasticity"],["1.3","Marginal analysis"]],
+    2: [["2.1","Surpluses, deadweight loss and price controls"],["2.2","Taxes"],["2.3","Trade and tariffs"]],
+    3: [["3.1","Production function"],["3.2","Revenue, cost, profit and cost curves"],["3.3","Short run and long run, SRATC and LRATC, economies of scale"],["3.4","Perfect competition"]],
+    4: [["4.1","Monopoly and price discrimination"],["4.2","Oligopoly and game theory"],["4.3","Monopolistic competition"]],
+    5: [["5.1","Factor markets intro and perfect competition"],["5.2","Resource combinations and monopsony"]],
+    6: [["6.1","Externalities and efficiency"],["6.2","Types of goods, government intervention, inequality"]],
+  },
+  macro: {
+    1: [["1.1","PPC, opportunity cost and comparative advantage"]],
+    2: [["2.1","GDP"],["2.2","Unemployment"],["2.3","Inflation"],["2.4","Business cycle"]],
+    3: [["3.1","AD-AS model"],["3.2","Long-run adjustments, propensities and multipliers"],["3.3","Fiscal policy and automatic stabilizers"]],
+    4: [["4.1","Financial assets and money"],["4.2","Balance sheets and the money multiplier"],["4.3","Money market"],["4.4","Monetary policy and the loanable funds market"]],
+    5: [["5.1","Policy interactions, Phillips curve, quantity theory"],["5.2","National budget and debt, crowding out, economic growth"]],
+    6: [["6.1","Balance of payments"],["6.2","Foreign exchange market"],["6.3","FOREX, net exports, interest rates and capital flows"]],
+  },
+};
+const topicTitle = (subject, code) => {
+  const u = Number(String(code).split(".")[0]);
+  const row = (TOPICS[subject]?.[u] || []).find((t) => t[0] === code);
+  return row ? row[1] : "";
+};
+
 const SNAME = { micro: "Microeconomics", macro: "Macroeconomics" };
 const SSHORT = { micro: "Micro", macro: "Macro" };
 const L = ["A", "B", "C", "D", "E", "F"];
@@ -32,8 +59,9 @@ const L = ["A", "B", "C", "D", "E", "F"];
 import { supabase } from "./db";
 import {
   configured, loadBank, upsertQuestions, deleteQuestion, upsertMaterial, deleteMaterial,
-  saveBands, recordSessionRow, loadSessions, signIn, signOut, getSession, askTutor,
-  loadMe, saveMe,
+  saveBands, recordSessionRow, loadSessions, signIn, signUp, signOut, getSession, onAuth,
+  isAdmin, loadProgress, saveProgress, askTutor, loadMe, saveMe,
+  sendReset, updatePassword, uploadImage,
 } from "./db";
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -113,7 +141,7 @@ const askClaude = (messages, system, maxTokens = 1200) => askTutor(messages, sys
 /* ---------------------------- styles ---------------------------- */
 
 const CSS = `
-@import url('https://api.fontshare.com/v2/css?f[]=stardom@400&f[]=telma@400,500,700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=stardom@400&f[]=satoshi@400,500,700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap');
 
 .eq,.eq *{box-sizing:border-box;}
@@ -126,22 +154,25 @@ const CSS = `
   --pgrid:#1A2234; --paxis:#3A465F; --markbg:#0E1524; --markline:#293349;
   --navbg:rgba(7,10,18,.8); --glowA:rgba(47,192,205,.13); --glowB:rgba(240,169,58,.09);
   --shadow:0 30px 80px -30px rgba(0,0,0,.9);
+  --qok:rgba(53,209,138,.18); --qoktx:#5FE3A7; --qno:rgba(255,110,110,.18); --qnotx:#FF9A9A;
+  --qpend:rgba(240,169,58,.18); --qpendtx:#F5C46B;
   --accent:var(--macro);
-  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-family:'Satoshi','Inter',system-ui,-apple-system,sans-serif;
   background:var(--bg); color:var(--tx); min-height:100vh;
   font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
   position:relative; overflow-x:hidden;
   transition:background .25s,color .25s;
 }
 .eq.light{
-  --bg:#F4F6FA; --bg2:#FFFFFF; --surf:#FFFFFF; --surf2:#F0F3F8; --surfhi:#E5EAF2;
-  --line:#DEE4EE; --line2:#C4CEDD;
-  --tx:#0B111E; --tx2:#4C5870; --tx3:#7A8499;
-  --micro:#B8730A; --macro:#0A8492; --onacc:#FFFFFF;
-  --ok:#14804C; --no:#BE3129; --okbg:rgba(20,128,76,.08); --nobg:rgba(190,49,41,.07);
-  --pgrid:#E7ECF4; --paxis:#A9B4C6; --markbg:#FFFFFF; --markline:#D5DDEA;
-  --navbg:rgba(244,246,250,.82); --glowA:rgba(10,132,146,.10); --glowB:rgba(184,115,10,.08);
-  --shadow:0 18px 44px -22px rgba(20,35,70,.26);
+  --bg:#F4ECDE; --bg2:#FBF5EB; --surf:#FFFBF4; --surf2:#F1E7D7; --surfhi:#E7DAC6;
+  --line:#E3D7C4; --line2:#CDBBA0;
+  --tx:#1E1810; --tx2:#544A3B; --tx3:#867A67;
+  --micro:#A8630A; --macro:#0A7A87; --onacc:#FFFFFF;
+  --ok:#3A6B2C; --no:#A93226; --okbg:rgba(58,107,44,.10); --nobg:rgba(169,50,38,.08);
+  --pgrid:#EBE0CE; --paxis:#B6A88F; --markbg:#FFFBF4; --markline:#DCCDB6;
+  --navbg:rgba(244,236,222,.85); --glowA:rgba(10,122,135,.09); --glowB:rgba(168,99,10,.09);
+  --shadow:0 18px 44px -22px rgba(80,60,30,.28);
+  --qok:#D8EFD3; --qoktx:#2F6B22; --qno:#F6D5D0; --qnotx:#A12A1E; --qpend:#F6E4C2; --qpendtx:#8A5608;
 }
 .eq::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(680px 420px at 78% -8%,var(--glowA),transparent 70%),
@@ -149,7 +180,7 @@ const CSS = `
 .eq .z{position:relative;z-index:1;}
 .eq h1,.eq h2,.eq h3,.eq h4,.eq .wm{font-family:'Stardom','Playfair Display',Georgia,serif;
   font-weight:400;letter-spacing:-.012em;line-height:1.06;margin:0;}
-.eq .ed{font-family:'Telma','Iowan Old Style',Georgia,serif;font-weight:400;}
+.eq .ed{}
 .eq .num{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;}
 .eq button{font-family:inherit;font-size:inherit;cursor:pointer;color:inherit;}
 .eq :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px;}
@@ -171,10 +202,15 @@ const CSS = `
 .eq .hero h1{font-size:clamp(42px,5.8vw,72px);font-weight:400;letter-spacing:-.02em;line-height:1.02;}
 .eq .hero h1 .g{background:linear-gradient(96deg,var(--micro),var(--macro));-webkit-background-clip:text;
   background-clip:text;color:transparent;}
-.eq .hero p{font-family:'Telma',Georgia,serif;color:var(--tx2);font-size:19px;line-height:1.6;margin:22px 0 0;max-width:42ch;}
+.eq .hero p{color:var(--tx2);font-size:17.5px;line-height:1.62;margin:22px 0 0;max-width:46ch;}
 .eq .heroact{display:flex;gap:12px;margin-top:32px;flex-wrap:wrap;}
-.eq .plotbox{position:relative;border:1px solid var(--line);border-radius:16px;overflow:hidden;
-  background:linear-gradient(180deg,var(--surf),var(--bg2));box-shadow:var(--shadow);}
+.eq .plotbox{position:relative;border:1px solid rgba(255,255,255,.1);border-radius:16px;overflow:hidden;
+  background:linear-gradient(168deg,#0C544B,#093A34);box-shadow:var(--shadow);}
+.eq .plotbox .readout{border-top-color:rgba(255,255,255,.14);}
+.eq .plotbox .readout div + div{border-left-color:rgba(255,255,255,.14);}
+.eq .plotbox .readout .k{color:#9BC6BC;}
+.eq .plotbox .readout .v{color:#EAF6F3;}
+.eq .plotbox .draghint{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);color:#DCEFEA;}
 .eq .plotbox svg{display:block;width:100%;height:auto;}
 .eq .readout{display:flex;border-top:1px solid var(--line);}
 .eq .readout div{flex:1;padding:12px 16px;}
@@ -227,23 +263,23 @@ const CSS = `
 .eq .course h2,.eq .course .cstats b{transition:color .3s;}
 .eq .course:hover h2{color:color-mix(in srgb,var(--accent) 30%,var(--tx));}
 .eq .course h2{font-size:34px;margin:16px 0 0;}
-.eq .course p{font-family:'Telma',Georgia,serif;color:var(--tx2);font-size:16px;line-height:1.5;margin:10px 0 0;max-width:36ch;}
+.eq .course p{color:var(--tx2);font-size:14.5px;line-height:1.55;margin:10px 0 0;max-width:38ch;}
 .eq .course .cstats{display:flex;gap:22px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line);}
 .eq .course .cstats b{display:block;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;}
 .eq .course .cstats span{font-size:11.5px;color:var(--tx3);}
 
-.eq .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
-  border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:34px 0 70px;}
-.eq .feat{background:var(--bg2);padding:24px 22px;}
-.eq .feat h3{font-size:18px;}
-.eq .feat p{font-family:'Telma',Georgia,serif;color:var(--tx2);font-size:15px;margin:8px 0 0;line-height:1.55;}
+.eq .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden;margin:34px 0 70px;}
+.eq .feat{background:linear-gradient(168deg,#0C544B,#093A34);padding:26px 24px;color:#E4F3EF;}
+.eq .feat h3{font-size:18px;color:#fff;}
+.eq .feat p{color:#A8CFC7;font-size:14px;margin:9px 0 0;line-height:1.6;}
 
 .eq .crumb{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--tx3);padding:26px 0 0;flex-wrap:wrap;}
 .eq .crumb button{background:none;border:0;padding:0;color:var(--tx3);}
 .eq .crumb button:hover{color:var(--tx);}
 .eq .phead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px;padding:16px 0 30px;}
 .eq .phead h1{font-size:clamp(32px,4.8vw,50px);font-weight:400;}
-.eq .phead .sub{font-family:'Telma',Georgia,serif;color:var(--tx2);font-size:16px;margin-top:10px;max-width:52ch;}
+.eq .phead .sub{color:var(--tx2);font-size:14.5px;margin-top:10px;max-width:58ch;}
 .eq .kpi{display:flex;gap:26px;}
 .eq .kpi .v{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:600;line-height:1;}
 .eq .kpi .l{font-size:11.5px;color:var(--tx3);margin-top:6px;}
@@ -256,7 +292,7 @@ const CSS = `
 .eq .urow:disabled{cursor:default;}
 .eq .urow .idx{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--accent);font-weight:600;}
 .eq .urow .t{font-weight:600;font-size:15.5px;}
-.eq .urow .b{font-family:'Telma',Georgia,serif;font-size:14px;color:var(--tx3);margin-top:4px;}
+.eq .urow .b{font-size:12.5px;color:var(--tx3);margin-top:4px;}
 .eq .urow .wl{font-size:11.5px;color:var(--tx3);margin-bottom:6px;}
 .eq .track{height:6px;background:var(--surfhi);border-radius:3px;overflow:hidden;}
 .eq .track i{display:block;height:100%;background:var(--accent);border-radius:3px;}
@@ -274,7 +310,7 @@ const CSS = `
 .eq .mk{font-size:11.5px;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
   border-radius:999px;padding:2px 9px;white-space:nowrap;}
 .eq .matl .chev{color:var(--tx3);font-size:12px;}
-.eq .prose{font-family:'Telma',Georgia,serif;padding:18px 20px 22px;color:var(--tx2);font-size:16.5px;line-height:1.66;}
+.eq .prose{padding:18px 20px 22px;color:var(--tx2);font-size:15.5px;line-height:1.72;}
 .eq .prose h4{font-size:16px;color:var(--tx);margin:18px 0 7px;}
 .eq .prose h4:first-child{margin-top:0;}
 .eq .prose p{margin:0 0 11px;}
@@ -312,7 +348,7 @@ const CSS = `
   border-radius:11px;padding:18px 20px;}
 .eq .fb .v{font-family:'Stardom',Georgia,serif;font-weight:400;font-size:18px;margin-bottom:9px;}
 .eq .fb .v.y{color:var(--ok);} .eq .fb .v.n{color:var(--no);}
-.eq .fb p{font-family:'Telma',Georgia,serif;margin:0;color:var(--tx2);font-size:16.5px;line-height:1.6;}
+.eq .fb p{margin:0;color:var(--tx2);font-size:15.5px;line-height:1.68;}
 .eq .actions{display:flex;align-items:center;gap:14px;margin-top:28px;flex-wrap:wrap;}
 
 .eq .score{display:flex;align-items:flex-end;gap:34px;flex-wrap:wrap;padding:38px 0 10px;}
@@ -414,7 +450,7 @@ const CSS = `
   border:1px solid var(--line);border-radius:16px;padding:26px;margin:0 0 48px;box-shadow:var(--shadow);
   background:linear-gradient(120deg,var(--surf),var(--bg2));}
 .eq .mockcard h3{font-size:25px;margin:13px 0 0;}
-.eq .mockcard p{font-family:'Telma',Georgia,serif;color:var(--tx2);font-size:15.5px;margin:9px 0 0;max-width:46ch;}
+.eq .mockcard p{color:var(--tx2);font-size:14px;margin:9px 0 0;max-width:50ch;}
 .eq .mockcard .ml{display:flex;gap:20px;margin-top:16px;}
 .eq .mockcard .ml b{display:block;font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;}
 .eq .mockcard .ml span{font-size:11.5px;color:var(--tx3);}
@@ -442,6 +478,389 @@ const CSS = `
 .eq .bandrow .br{font-family:'JetBrains Mono',monospace;font-size:13px;}
 .eq input[type=range]{width:100%;accent-color:var(--accent);background:transparent;}
 .eq .lowtime{color:var(--no);}
+
+/* ---- landing, auth and dashboard ---- */
+.eq .lnav{display:flex;align-items:center;justify-content:space-between;height:70px;}
+.eq .land{max-width:1120px;margin:0 auto;padding:0 24px;}
+.eq .lhero{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding:56px 0 70px;}
+.eq .lhero h1{font-size:clamp(40px,5.4vw,66px);line-height:1.02;}
+.eq .lhero .ul{position:relative;white-space:nowrap;}
+.eq .lhero .ul::after{content:'';position:absolute;left:0;right:0;bottom:-2px;height:4px;border-radius:3px;
+  background:linear-gradient(90deg,var(--micro),var(--macro));}
+.eq .lhero p{color:var(--tx2);font-size:18px;line-height:1.6;
+  margin:24px 0 0;max-width:46ch;}
+
+.eq .auth{display:grid;grid-template-columns:1fr 1fr;min-height:100vh;}
+.eq .authform{display:flex;flex-direction:column;justify-content:center;padding:40px 8vw;max-width:620px;
+  width:100%;margin:0 auto;}
+.eq .authform h1{font-size:34px;margin-bottom:8px;}
+.eq .authform .lead{color:var(--tx2);font-size:15.5px;line-height:1.6;margin:0 0 28px;}
+.eq .authart{background:linear-gradient(168deg,#0C544B,#093A34);display:flex;align-items:center;
+  justify-content:center;padding:40px;}
+.eq .authart svg{width:100%;max-width:440px;height:auto;}
+.eq .swap{font-size:14px;color:var(--tx3);margin-top:22px;text-align:center;}
+.eq .swap button{background:none;border:0;color:var(--tx);font-weight:600;padding:0;}
+.eq .swap button:hover{color:var(--accent);}
+
+.eq .dash{display:grid;grid-template-columns:1fr 340px;gap:26px;align-items:start;}
+.eq .greet{font-size:clamp(26px,3.4vw,36px);margin-bottom:6px;}
+.eq .greet em{font-style:normal;color:var(--accent);}
+.eq .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:22px 0 26px;}
+.eq .kpi2{background:var(--bg2);padding:18px 16px;}
+.eq .kpi2 .v{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;line-height:1;}
+.eq .kpi2 .l{font-size:11.5px;color:var(--tx3);margin-top:7px;}
+.eq .panel{border:1px solid var(--line);border-radius:14px;background:var(--bg2);padding:22px;margin-bottom:20px;}
+.eq .panel h3{font-size:19px;margin-bottom:4px;}
+.eq .panel .ptext{color:var(--tx2);font-size:14px;line-height:1.6;margin:8px 0 16px;}
+.eq .nextrow{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:11px 0;
+  border-bottom:1px solid var(--line);font-size:14px;width:100%;background:none;border-left:0;border-right:0;
+  border-top:0;text-align:left;}
+.eq .nextrow:last-child{border-bottom:0;}
+.eq .nextrow:hover{color:var(--accent);}
+@media (max-width:900px){
+  .eq .lhero{grid-template-columns:1fr;gap:34px;padding:34px 0 46px;}
+  .eq .auth{grid-template-columns:1fr;}
+  .eq .authart{display:none;}
+  .eq .dash{grid-template-columns:1fr;}
+  .eq .kpis{grid-template-columns:1fr 1fr;}
+}
+
+/* question bank */
+.eq .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:22px;}
+.eq .fbtn{display:inline-flex;align-items:center;gap:8px;background:var(--surf);border:1px solid var(--line);
+  border-radius:10px;padding:8px 14px;font-size:13.5px;color:var(--tx2);}
+.eq .fbtn:hover{border-color:var(--line2);color:var(--tx);}
+.eq .fbtn.on{border-color:var(--accent);color:var(--tx);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent);}
+.eq .allcard{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
+  border:1px solid var(--line);border-radius:14px;background:var(--surf);padding:20px 22px;margin-bottom:26px;}
+.eq .allcard h3{font-size:20px;}
+.eq .allcard p{color:var(--tx2);font-size:14px;margin:6px 0 0;}
+.eq .ugroup{margin-bottom:30px;}
+.eq .ugtitle{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;}
+.eq .ugtitle h3{font-size:21px;}
+.eq .ugtitle span{font-size:12px;color:var(--tx3);}
+.eq .btable{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:var(--bg2);}
+.eq .bhead,.eq .brow{display:grid;grid-template-columns:26px 1fr 150px 74px;gap:16px;align-items:center;
+  padding:13px 18px;border-bottom:1px solid var(--line);}
+.eq .bhead{font-size:11.5px;color:var(--tx3);background:var(--surf);}
+.eq .brow{background:var(--bg2);transition:background .15s;text-align:left;width:100%;border-left:0;border-right:0;border-top:0;}
+.eq .brow:last-child{border-bottom:0;}
+.eq .brow:hover{background:var(--surf2);}
+.eq .brow .tp{display:flex;align-items:baseline;gap:10px;}
+.eq .brow .tc{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--accent);}
+.eq .brow .tt{font-size:14.5px;color:var(--tx);}
+.eq .brow.none .tt{color:var(--tx3);}
+.eq .prog{display:flex;align-items:center;gap:10px;}
+.eq .prog .bar{flex:1;height:6px;background:var(--surfhi);border-radius:3px;overflow:hidden;}
+.eq .prog .bar i{display:block;height:100%;background:var(--accent);border-radius:3px;}
+.eq .prog .n{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--tx3);white-space:nowrap;}
+.eq .acc2{font-family:'JetBrains Mono',monospace;font-size:13.5px;text-align:right;display:flex;
+  align-items:center;justify-content:flex-end;gap:6px;}
+.eq .acc2 .pip{width:7px;height:7px;border-radius:50%;}
+.eq .selbar{position:sticky;bottom:0;z-index:20;display:flex;justify-content:space-between;align-items:center;
+  gap:18px;flex-wrap:wrap;background:var(--navbg);backdrop-filter:blur(12px);border:1px solid var(--line2);
+  border-radius:14px;padding:14px 18px;margin:8px 0 40px;box-shadow:var(--shadow);}
+.eq .cbx{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;}
+
+/* ---- app shell with the left rail ---- */
+.eq .shell{display:block;min-height:100vh;}
+/* The rail sits above the page, so opening it never shifts the content. */
+.eq .side{--sbg1:#0C544B;--sbg2:#093A34;--stx:#E4F3EF;--stx2:#9BC6BC;--shov:rgba(255,255,255,.1);
+  position:fixed;left:0;top:0;bottom:0;width:70px;overflow-x:hidden;overflow-y:auto;
+  background:linear-gradient(168deg,var(--sbg1),var(--sbg2));color:var(--stx);
+  border-right:1px solid rgba(255,255,255,.08);padding:16px 10px;
+  display:flex;flex-direction:column;gap:3px;z-index:60;
+  transition:width .2s cubic-bezier(.3,.8,.3,1),box-shadow .2s;}
+.eq .side:hover,.eq .side:has(:focus-visible){width:244px;box-shadow:24px 0 50px -20px rgba(0,0,0,.55);}
+.eq.light .side{--sbg1:#0E5D53;--sbg2:#0A443D;}
+.eq .side .brand{display:flex;align-items:center;justify-content:center;gap:0;background:none;border:0;
+  padding:8px 0 18px;color:var(--stx);white-space:nowrap;width:100%;}
+.eq .side .brand .bw{max-width:0;opacity:0;overflow:hidden;white-space:nowrap;
+  transition:max-width .22s cubic-bezier(.3,.8,.3,1),opacity .16s;}
+.eq .side:hover .brand,.eq .side:has(:focus-visible) .brand{justify-content:flex-start;padding-left:8px;}
+.eq .side:hover .brand .bw.l,.eq .side:has(:focus-visible) .brand .bw.l{max-width:170px;opacity:1;}
+.eq .side:hover .brand .bw.r,.eq .side:has(:focus-visible) .brand .bw.r{max-width:50px;opacity:1;}
+.eq .brandwrap{display:inline-flex;align-items:center;gap:9px;letter-spacing:-.01em;line-height:1;}
+.eq .brandwrap .bw-mark{display:flex;flex:0 0 auto;}
+.eq .wm .ap{color:var(--micro);}
+.eq .side .wm .ap{color:#F5C46B;}
+.eq .sgroup{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--stx2);
+  padding:18px 10px 6px;white-space:nowrap;height:32px;}
+.eq .sitem{display:flex;align-items:center;gap:13px;width:100%;background:none;border:0;text-align:left;
+  padding:10px 9px;border-radius:9px;font-size:14px;color:var(--stx2);white-space:nowrap;
+  transition:background .14s,color .14s;}
+.eq .sitem:hover{background:var(--shov);color:var(--stx);}
+.eq .sitem.on{background:rgba(255,255,255,.14);color:#fff;font-weight:500;
+  box-shadow:inset 2px 0 0 rgba(255,255,255,.75);}
+.eq .sitem svg{flex:0 0 18px;}
+.eq .sitem .sdot{width:7px;height:7px;border-radius:50%;flex:0 0 7px;margin-left:4px;}
+.eq .sfoot{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.12);}
+.eq .side :focus-visible{outline-color:#fff;}
+/* Labels fade in with the rail rather than reflowing it. */
+.eq .lbl,.eq .sdot,.eq .sgroup span{opacity:0;transition:opacity .16s;}
+.eq .side:hover .lbl,.eq .side:hover .sdot,.eq .side:hover .sgroup span,
+.eq .side:has(:focus-visible) .lbl,.eq .side:has(:focus-visible) .sdot,.eq .side:has(:focus-visible) .sgroup span{opacity:1;}
+.eq .main{min-width:0;margin-left:70px;position:relative;z-index:1;}
+.eq .solo{min-height:100vh;}
+/* While the rail is open the page dims, so it reads as a layer on top. */
+.eq .railveil{position:fixed;inset:0 0 0 70px;background:rgba(0,0,0,.34);opacity:0;pointer-events:none;
+  transition:opacity .2s;z-index:50;}
+.eq.light .railveil{background:rgba(40,30,15,.22);}
+.eq .side:hover ~ .main .railveil,.eq .side:has(:focus-visible) ~ .main .railveil{opacity:1;}
+.eq .mtop{display:none;}
+
+/* ---- question surface ---- */
+.eq .qtop{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surf);
+  border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:26px;}
+.eq .qnum{background:var(--tx);color:var(--bg);font-family:'JetBrains Mono',monospace;font-weight:600;
+  font-size:14px;width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.eq .qtool{display:inline-flex;align-items:center;gap:7px;background:none;border:0;color:var(--tx2);
+  font-size:13px;padding:6px 9px;border-radius:8px;}
+.eq .qtool:hover{background:var(--surf2);color:var(--tx);}
+.eq .qtool.on{color:var(--accent);}
+.eq .qbody{font-size:20px;line-height:1.55;font-weight:400;margin:0 0 26px;letter-spacing:-.005em;
+  user-select:text;}
+.eq .qbody mark{background:color-mix(in srgb,var(--micro) 34%,transparent);color:inherit;
+  border-radius:2px;padding:1px 0;cursor:pointer;}
+.eq .qfig{display:block;margin:0 0 24px;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  background:#fff;max-width:560px;}
+.eq .qfig img{display:block;width:100%;height:auto;}
+.eq .qfig:hover{border-color:var(--accent);}
+.eq .orow{display:grid;grid-template-columns:1fr 42px;gap:10px;align-items:center;margin-bottom:11px;}
+.eq .obtn{display:grid;grid-template-columns:30px 1fr;gap:14px;align-items:center;text-align:left;width:100%;
+  background:var(--bg2);border:1.5px solid var(--line2);border-radius:12px;padding:14px 16px;
+  font-size:15.5px;line-height:1.5;color:var(--tx);transition:border-color .14s,background .14s;}
+.eq .obtn:hover:not(:disabled){border-color:var(--tx3);}
+.eq .obtn .circ{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line2);display:flex;
+  align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--tx2);
+  font-family:'JetBrains Mono',monospace;transition:all .14s;}
+.eq .obtn.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--bg2));}
+.eq .obtn.sel .circ{background:var(--accent);color:var(--onacc);border-color:var(--accent);}
+.eq .obtn.good{border-color:var(--ok);background:var(--okbg);}
+.eq .obtn.good .circ{background:var(--ok);color:#fff;border-color:var(--ok);}
+.eq .obtn.bad{border-color:var(--no);background:var(--nobg);}
+.eq .obtn.bad .circ{background:var(--no);color:#fff;border-color:var(--no);}
+.eq .obtn.out{opacity:.4;}
+.eq .obtn.out span:last-child{text-decoration:line-through;}
+.eq .elim{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--line);background:none;
+  color:var(--tx3);font-family:'JetBrains Mono',monospace;font-size:12.5px;position:relative;
+  display:flex;align-items:center;justify-content:center;}
+.eq .elim:hover{border-color:var(--tx2);color:var(--tx);}
+.eq .elim::after{content:'';position:absolute;left:5px;right:5px;height:1.5px;background:currentColor;
+  transform:scaleX(0);transition:transform .15s;}
+.eq .elim.on{color:var(--tx);border-color:var(--tx2);}
+.eq .elim.on::after{transform:scaleX(1);}
+.eq .qfoot{position:sticky;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:14px;
+  flex-wrap:wrap;background:var(--navbg);backdrop-filter:blur(12px);border-top:1px solid var(--line);
+  padding:14px 0;margin-top:30px;}
+.eq .timer{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0 22px;}
+.eq .timer .digits{font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:600;
+  letter-spacing:.02em;line-height:1;}
+.eq .timer .digits.hid{visibility:hidden;}
+.eq .timer .tctl{display:flex;gap:8px;align-items:center;}
+.eq .tbtn2{width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);background:var(--bg2);
+  color:var(--tx2);display:flex;align-items:center;justify-content:center;}
+.eq .tbtn2:hover{color:var(--tx);border-color:var(--tx3);}
+.eq .tpill{border:1px solid var(--line2);background:var(--bg2);color:var(--tx2);border-radius:999px;
+  padding:5px 14px;font-size:12.5px;}
+.eq .tpill:hover{color:var(--tx);border-color:var(--tx3);}
+
+.eq .hlpop{position:absolute;z-index:50;display:flex;gap:9px;align-items:center;background:var(--bg2);
+  border:1px solid var(--line2);border-radius:999px;padding:7px 11px;box-shadow:var(--shadow);}
+.eq .swatch{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(0,0,0,.28);}
+.eq .swatch:hover{transform:scale(1.12);}
+.eq .swatch.erase{background:transparent;border-color:var(--line2);color:var(--tx3);
+  display:flex;align-items:center;justify-content:center;}
+.eq .swatch.erase:hover{color:var(--no);border-color:var(--no);}
+.eq .qbody{position:relative;}
+
+/* ---- dashboard: countdown, goal, streak, resume ---- */
+.eq .greetrow{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+.eq .credchip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--bg2);
+  color:var(--tx2);border-radius:999px;padding:8px 15px;font-size:13px;font-weight:500;white-space:nowrap;}
+.eq .credchip:hover{border-color:var(--line2);color:var(--tx);}
+.eq .credchip .dotc{width:7px;height:7px;border-radius:50%;background:var(--ok);}
+.eq .credchip.out .dotc{background:var(--no);}
+.eq .credchip.up{border-style:dashed;}
+.eq .todaygrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:26px 0 8px;}
+.eq .tcard{position:relative;display:flex;flex-direction:column;gap:7px;align-items:flex-start;text-align:left;
+  background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:18px 20px;min-height:124px;}
+.eq .tlab{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--tx3);}
+.eq .tbig{font-size:34px;line-height:1;font-weight:600;letter-spacing:-.02em;}
+.eq .tbig small{font-size:15px;font-weight:400;color:var(--tx3);margin-left:4px;}
+.eq .thint{font-size:12.5px;color:var(--tx3);}
+.eq .tbar{display:block;width:100%;height:6px;border-radius:99px;background:var(--surf2);overflow:hidden;margin-top:2px;}
+.eq .tbar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s;}
+.eq .tdate{margin-top:auto;background:none;border:0;color:var(--tx3);font-size:12.5px;font-family:inherit;padding:0;}
+.eq .tcard.go{cursor:pointer;border-color:var(--accent);}
+.eq .tcard.go:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
+.eq .tgo{font-size:16px;font-weight:500;line-height:1.35;}
+.eq .tarrow{margin-top:auto;display:inline-flex;align-items:center;gap:7px;color:var(--accent);font-weight:600;font-size:13.5px;}
+
+/* ---- question bank, card style ---- */
+.eq .allcard.ready{border-color:var(--accent);}
+.eq .allact{display:flex;align-items:center;gap:14px;}
+.eq .pickbar{position:sticky;top:10px;z-index:20;display:flex;align-items:center;gap:12px;margin:18px 0 6px;
+  background:var(--bg2);border:1px solid var(--accent);border-radius:14px;padding:12px 18px;font-size:14px;
+  box-shadow:var(--shadow);}
+.eq .btable{display:flex;flex-direction:column;gap:8px;border:0;background:none;}
+.eq .bhead{display:none;}
+.eq .brow{display:grid;grid-template-columns:24px 1fr 170px 74px;align-items:center;gap:16px;
+  background:var(--bg2);border:1px solid var(--line);border-radius:13px;padding:15px 18px;width:100%;
+  text-align:left;transition:transform .14s,border-color .14s,box-shadow .14s;}
+.eq .brow:hover{transform:translateY(-1px);border-color:var(--line2);box-shadow:var(--shadow);}
+.eq .brow.none{opacity:.45;}
+.eq .brow .tc{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:24px;
+  border-radius:7px;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);
+  font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;margin-right:12px;}
+.eq .brow .tt{font-size:15px;}
+.eq .ugtitle{display:flex;align-items:baseline;gap:14px;margin:30px 0 14px;flex-wrap:wrap;}
+
+/* ---- Equity button ---- */
+.eq .eqbtn{display:inline-flex;align-items:center;gap:10px;}
+.eq .eqleft{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent);}
+.eq .eqleft.lock{background:var(--surf2);color:var(--tx3);}
+
+/* ---- pricing ---- */
+.eq .cycle{display:inline-flex;gap:4px;margin-top:22px;background:var(--surf2);border-radius:999px;padding:4px;}
+.eq .cycle button{border:0;background:none;color:var(--tx2);padding:9px 20px;border-radius:999px;font-size:14px;font-weight:500;}
+.eq .cycle button.on{background:var(--bg2);color:var(--tx);box-shadow:var(--shadow);}
+.eq .cycle .save{font-size:11px;color:var(--ok);margin-left:6px;}
+.eq .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px;align-items:start;}
+.eq .plan{position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:18px;padding:26px 24px;}
+.eq .plan.popular{border-color:var(--accent);box-shadow:var(--shadow);transform:translateY(-10px);padding-top:32px;}
+.eq .plan.current{outline:1px dashed var(--line2);outline-offset:4px;}
+.eq .ptag{position:absolute;top:-11px;left:24px;background:var(--accent);color:var(--onacc);font-size:11.5px;
+  font-weight:700;letter-spacing:.04em;padding:5px 12px;border-radius:999px;}
+.eq .plan h3{font-size:19px;margin-bottom:8px;}
+.eq .pprice{display:flex;align-items:baseline;gap:6px;margin-bottom:10px;}
+.eq .pprice b{font-size:40px;font-weight:600;letter-spacing:-.03em;}
+.eq .pprice span{color:var(--tx3);font-size:14px;}
+.eq .pblurb{color:var(--tx2);font-size:14px;line-height:1.55;margin-bottom:18px;min-height:44px;}
+.eq .plan .btn{width:100%;justify-content:center;}
+.eq .plist{list-style:none;margin-top:20px;padding-top:18px;border-top:1px solid var(--line);
+  display:flex;flex-direction:column;gap:11px;font-size:14px;}
+.eq .plist li{display:flex;gap:10px;align-items:flex-start;}
+.eq .plist li.off{color:var(--tx3);}
+.eq .pmark{color:var(--accent);font-weight:700;width:14px;flex:0 0 auto;}
+.eq .plist li.off .pmark{color:var(--tx3);}
+
+/* ---- phone ---- */
+@media (max-width:900px){
+  .eq .todaygrid{grid-template-columns:repeat(2,1fr);}
+  .eq .plans{grid-template-columns:1fr;gap:22px;}
+  .eq .plan.popular{transform:none;}
+}
+@media (max-width:640px){
+  .eq .todaygrid{grid-template-columns:1fr;gap:10px;margin-top:20px;}
+  .eq .tcard{min-height:0;padding:15px 17px;}
+  .eq .tbig{font-size:28px;}
+  .eq .greetrow{flex-direction:column;gap:12px;}
+  .eq .credchip{font-size:12.5px;padding:7px 13px;}
+  .eq .brow{grid-template-columns:22px 1fr auto;gap:11px;padding:13px 14px;row-gap:9px;}
+  .eq .brow .prog{grid-column:2 / -1;}
+  .eq .brow .tt{font-size:14.5px;}
+  .eq .pickbar{position:fixed;left:10px;right:10px;bottom:10px;top:auto;margin:0;}
+  .eq .allact{flex-direction:column;align-items:stretch;}
+  .eq .allcard .btn{width:100%;justify-content:center;}
+  .eq .cycle{width:100%;justify-content:center;}
+  .eq .eqbtn{width:100%;justify-content:space-between;}
+}
+.eq .pfoot{position:fixed;left:0;right:0;bottom:0;z-index:35;background:var(--navbg);backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);}
+.eq .pfin{max-width:860px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:10px;}
+.eq .qcount{display:inline-flex;align-items:center;gap:8px;background:var(--tx);color:var(--bg);border:0;
+  border-radius:10px;padding:9px 16px;font-weight:600;font-size:14px;}
+.eq .qcount:hover{filter:brightness(1.12);}
+.eq .qmap{background:var(--bg2);border:1px solid var(--line);border-radius:18px;width:100%;max-width:480px;
+  max-height:84vh;display:flex;flex-direction:column;box-shadow:var(--shadow);overflow:hidden;}
+.eq .qmhead{display:flex;justify-content:space-between;align-items:center;padding:20px 22px 14px;
+  border-bottom:1px solid var(--line);}
+.eq .qmhead h2{font-size:22px;}
+.eq .qmx{background:none;border:0;color:var(--tx3);width:32px;height:32px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;}
+.eq .qmx:hover{background:var(--surf2);color:var(--tx);}
+.eq .qmlegend{display:flex;flex-wrap:wrap;gap:12px 20px;padding:16px 22px 12px;font-size:13.5px;color:var(--tx);font-weight:500;}
+.eq .qmlegend span{display:inline-flex;align-items:center;gap:8px;}
+.eq .lg{width:12px;height:12px;border-radius:4px;display:inline-block;}
+.eq .lg.ok{background:var(--qok);} .eq .lg.no{background:var(--qno);}
+.eq .lg.pend{background:var(--qpend);} .eq .lg.rev{background:var(--micro);border-radius:2px;}
+.eq .qmgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;padding:6px 22px 22px;overflow-y:auto;}
+.eq .qmcell{position:relative;aspect-ratio:1.15;border-radius:12px;border:1.5px solid transparent;
+  background:var(--surf2);color:var(--tx2);font-family:'JetBrains Mono',monospace;font-weight:600;font-size:15px;
+  display:flex;align-items:center;justify-content:center;transition:transform .12s;}
+.eq .qmcell:hover{transform:translateY(-1px);}
+.eq .qmcell.ok{background:var(--qok);color:var(--qoktx);}
+.eq .qmcell.no{background:var(--qno);color:var(--qnotx);}
+.eq .qmcell.pend{background:var(--qpend);color:var(--qpendtx);}
+.eq .qmcell.now{border-color:var(--tx);box-shadow:0 0 0 2px var(--bg2),0 0 0 3.5px var(--tx);}
+.eq .qmbadge{position:absolute;top:-7px;right:-7px;display:flex;border-radius:50%;
+  background:var(--bg2);padding:1.5px;line-height:0;}
+.eq .btn.submit{padding:10px 24px;font-size:14.5px;font-weight:700;border-radius:10px;
+  background:var(--accent);border:1px solid var(--accent);color:var(--onacc);
+  box-shadow:0 8px 22px -14px var(--accent);}
+.eq .btn.submit:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.eq .rv{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:18px 0 40px;}
+.eq .rvi{border-bottom:1px solid var(--line);background:var(--bg2);}
+.eq .rvi:last-child{border-bottom:0;}
+.eq .rvi summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:34px 1fr 24px;gap:14px;
+  padding:16px 18px;align-items:start;font-size:15px;line-height:1.55;}
+.eq .rvi summary::-webkit-details-marker{display:none;}
+.eq .rvi summary:hover{background:var(--surf2);}
+.eq .rvi[open] summary{background:var(--surf2);border-bottom:1px solid var(--line);}
+.eq .rvn{color:var(--tx3);font-size:13px;padding-top:2px;}
+.eq .rvst{padding-top:2px;display:flex;justify-content:flex-end;}
+.eq .rvblank{width:16px;height:16px;border-radius:50%;border:2px solid var(--tx3);display:inline-block;flex:0 0 auto;}
+.eq .rvbody{padding:18px 18px 22px 66px;}
+.eq .rvopt{display:grid;grid-template-columns:28px 1fr auto;gap:12px;align-items:center;padding:11px 14px;
+  border:1.5px solid var(--line);border-radius:10px;margin-bottom:8px;font-size:14.5px;background:var(--bg2);}
+.eq .rvopt.good{border-color:var(--ok);background:var(--okbg);}
+.eq .rvopt.bad{border-color:var(--no);background:var(--nobg);}
+.eq .rvc{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line2);display:flex;align-items:center;
+  justify-content:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--tx2);}
+.eq .rvopt.good .rvc{background:var(--ok);border-color:var(--ok);color:#fff;}
+.eq .rvopt.bad .rvc{background:var(--no);border-color:var(--no);color:#fff;}
+.eq .rvtag{font-size:11.5px;font-weight:600;white-space:nowrap;}
+.eq .rvopt.good .rvtag{color:var(--ok);} .eq .rvopt.bad .rvtag{color:var(--no);}
+.eq .rvexp{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);color:var(--tx2);font-size:15px;line-height:1.68;}
+.eq .qopen{width:100%;text-align:left;border-left:0;border-right:0;border-top:0;cursor:pointer;color:inherit;}
+.eq .qopen:hover{background:var(--surf2);}
+.eq .qopen .st{color:var(--accent);}
+.eq .tally{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:13px;
+  overflow:hidden;margin-top:22px;max-width:560px;}
+.eq .tally div{flex:1;background:var(--bg2);padding:14px 16px;display:flex;align-items:center;gap:10px;}
+.eq .tally b{font-size:22px;font-weight:600;}
+.eq .tally span:last-child{font-size:12.5px;color:var(--tx3);}
+.eq .linkish{background:none;border:0;padding:0;margin-left:10px;color:var(--accent);font-weight:600;
+  text-decoration:underline;text-underline-offset:3px;}
+.eq .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+@media (max-width:640px){ .eq .rvbody{padding-left:18px;} .eq .btn.submit{padding:10px 18px;} }
+.eq .gcell.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok);}
+.eq .qmgrid{padding-top:10px;}
+.eq .gcell.no{background:var(--nobg);border-color:var(--no);color:var(--no);}
+@media (max-width:640px){ .eq .pkeys{display:none;} .eq .pfin{padding:10px 14px;gap:8px;} }
+.eq .notepad{border:1px solid var(--line);border-radius:12px;background:var(--surf);padding:14px;margin-bottom:22px;}
+.eq .notepad textarea{background:var(--bg2);}
+
+@media (max-width:900px){
+  .eq .main{margin-left:0;}
+  .eq .railveil{display:none;}
+  .eq .side{width:250px;transform:translateX(-100%);transition:transform .25s;}
+  .eq .side:hover{width:250px;}
+  .eq .side.open{transform:none;}
+  .eq .lbl,.eq .sdot,.eq .sgroup span{opacity:1;}
+  .eq .mtop{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--navbg);backdrop-filter:blur(12px);z-index:20;}
+  .eq .scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:25;}
+}
+@media (max-width:760px){
+  .eq .bhead{display:none;}
+  .eq .brow{grid-template-columns:24px 1fr auto;gap:12px;}
+  .eq .brow .prog{display:none;}
+}
 `;
 
 /* ---------------------------- logo + icons ---------------------------- */
@@ -455,6 +874,17 @@ function Mark({ size = 26 }) {
       <circle cx="13" cy="13" r="3.1" fill="var(--markbg)" />
       <circle cx="13" cy="13" r="1.9" fill="var(--tx)" />
     </svg>
+  );
+}
+
+/* The mark sits between the two words: Equilibrium ✕ AP */
+function Brand({ size = 19, mark = 24 }) {
+  return (
+    <span className="brandwrap wm" style={{ fontSize: size }}>
+      <span className="bw l">Equilibrium</span>
+      <span className="bw-mark"><Mark size={mark} /></span>
+      <span className="bw r ap">AP</span>
+    </span>
   );
 }
 
@@ -523,30 +953,47 @@ function HeroPlot() {
   const Q = ((ex - X0) / (X1 - X0)) * 100;
   const P = ((Y1 - ey) / (Y1 - Y0)) * 100;
 
+  /* The demand line keeps its length as it slides, so it is clipped to the
+     plot area. The D label rides the line and is clamped to stay inside. */
+  const dSlope = (302 - 62) / (500 - (X0 + 8));
+  const labelX = Math.max(X0 + 30, Math.min(X1 + 8, 500 + dx));
+  const labelY = Math.min(Y1 + 2, 62 + dSlope * (labelX - dx - X0 - 8));
+
   return (
     <div className="plotbox">
       <svg ref={svgRef} viewBox="0 0 600 330" role="img" aria-label="Supply and demand curves meeting at equilibrium">
-        <g stroke="var(--pgrid)" strokeWidth="1">
+        <defs>
+          <clipPath id="plotclip">
+            <rect x={X0} y={Y0 - 14} width={X1 + 12 - X0} height={Y1 + 8 - (Y0 - 14)} />
+          </clipPath>
+        </defs>
+        <g stroke="rgba(255,255,255,.09)" strokeWidth="1">
           {[0, 1, 2, 3, 4, 5].map((i) => <line key={"h" + i} x1={X0} y1={Y0 + i * 50} x2={X1 + 20} y2={Y0 + i * 50} />)}
           {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <line key={"v" + i} x1={X0 + i * 62} y1={Y0 - 10} x2={X0 + i * 62} y2={Y1 + 8} />)}
         </g>
-        <line x1={X0} y1={Y0 - 12} x2={X0} y2={Y1 + 8} stroke="var(--paxis)" strokeWidth="1.4" />
-        <line x1={X0 - 8} y1={Y1 + 8} x2={X1 + 30} y2={Y1 + 8} stroke="var(--paxis)" strokeWidth="1.4" />
-        <text x={X0 - 26} y={Y0 - 2} fill="var(--tx3)" fontSize="12" fontFamily="JetBrains Mono">P</text>
-        <text x={X1 + 34} y={Y1 + 13} fill="var(--tx3)" fontSize="12" fontFamily="JetBrains Mono">Q</text>
+        <line x1={X0} y1={Y0 - 12} x2={X0} y2={Y1 + 8} stroke="rgba(255,255,255,.3)" strokeWidth="1.4" />
+        <line x1={X0 - 8} y1={Y1 + 8} x2={X1 + 30} y2={Y1 + 8} stroke="rgba(255,255,255,.3)" strokeWidth="1.4" />
+        <text x={X0 - 26} y={Y0 - 2} fill="#8FB8B0" fontSize="12" fontFamily="JetBrains Mono">P</text>
+        <text x={X1 + 34} y={Y1 + 13} fill="#8FB8B0" fontSize="12" fontFamily="JetBrains Mono">Q</text>
         <line x1={X0 + 8} y1="286" x2="540" y2="60" stroke="var(--macro)" strokeWidth="2.6" strokeLinecap="round" />
         <text x="546" y="58" fill="var(--macro)" fontSize="13" fontWeight="600" fontFamily="JetBrains Mono">S</text>
-        <g transform={`translate(${dx},0)`} className="grab" tabIndex={0} role="slider"
+        <g className="grab" tabIndex={0} role="slider"
           aria-label="Drag the demand curve" aria-valuemin={-72} aria-valuemax={72} aria-valuenow={Math.round(dx)}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onKeyDown={onKey}>
-          <line x1={X0 + 8} y1="62" x2="500" y2="302" stroke="transparent" strokeWidth="30" strokeLinecap="round" />
-          <line x1={X0 + 8} y1="62" x2="500" y2="302" stroke="var(--micro)" strokeWidth="2.6" strokeLinecap="round" />
-          <text x="506" y="304" fill="var(--micro)" fontSize="13" fontWeight="600" fontFamily="JetBrains Mono">D</text>
+          {/* The clip must sit on an outer group: a clip-path on the same
+              element as the transform would slide along with the line. */}
+          <g clipPath="url(#plotclip)">
+            <g transform={`translate(${dx},0)`}>
+              <line x1={X0 + 8} y1="62" x2="500" y2="302" stroke="transparent" strokeWidth="30" strokeLinecap="round" />
+              <line x1={X0 + 8} y1="62" x2="500" y2="302" stroke="var(--micro)" strokeWidth="2.6" strokeLinecap="round" />
+            </g>
+          </g>
+          <text x={labelX + 8} y={labelY + 2} fill="var(--micro)" fontSize="13" fontWeight="600" fontFamily="JetBrains Mono">D</text>
         </g>
-        <line x1={X0} y1={ey} x2={ex} y2={ey} stroke="var(--paxis)" strokeWidth="1" strokeDasharray="3 4" />
-        <line x1={ex} y1={ey} x2={ex} y2={Y1 + 8} stroke="var(--paxis)" strokeWidth="1" strokeDasharray="3 4" />
+        <line x1={X0} y1={ey} x2={ex} y2={ey} stroke="rgba(255,255,255,.28)" strokeWidth="1" strokeDasharray="3 4" />
+        <line x1={ex} y1={ey} x2={ex} y2={Y1 + 8} stroke="rgba(255,255,255,.28)" strokeWidth="1" strokeDasharray="3 4" />
         <circle cx={ex} cy={ey} r="10" fill="var(--accent)" opacity=".2" />
-        <circle cx={ex} cy={ey} r="5" fill="var(--tx)" />
+        <circle cx={ex} cy={ey} r="5" fill="#FFFFFF" />
       </svg>
       <div className="draghint" style={{ opacity: held ? 0 : 1 }}>Drag the demand curve</div>
       <div className="readout">
@@ -597,11 +1044,29 @@ function Prose({ text }) {
    APP
    ============================================================ */
 
+/* Which rail entry lights up for the page being shown. */
+function shellKey(r) {
+  if (["planner", "analytics", "saved", "tutor", "pricing"].includes(r.v)) return r.v;
+  if (["tests", "mock", "mockresult"].includes(r.v)) return "test";
+  if (r.subject) return `bank-${r.subject}`;
+  return "home";
+}
+
 function parseRoute() {
   const p = (window.location.pathname || "/").toLowerCase().split("/").filter(Boolean);
+  if (p[0] === "signin") return { v: "signin" };
+  if (p[0] === "forgot") return { v: "forgot" };
+  if (p[0] === "reset") return { v: "reset" };
+  if (p[0] === "signup") return { v: "signup" };
   if (p[0] === "tutor") return { v: "tutor" };
+  if (p[0] === "pricing") return { v: "pricing" };
   if (p[0] === "admin") return { v: "admin" };
+  if (p[0] === "planner") return { v: "planner" };
+  if (p[0] === "analytics") return { v: "analytics" };
+  if (p[0] === "saved") return { v: "saved" };
+  if (p[0] === "tests") return { v: "tests" };
   if (p[0] === "micro" || p[0] === "macro") {
+    if (p[1] === "bank") return { v: "bank", subject: p[0] };
     const n = Number(p[1]);
     if (n >= 1 && n <= 6) return { v: "unit", subject: p[0], unit: n };
     return { v: "course", subject: p[0] };
@@ -617,9 +1082,16 @@ export default function App() {
 
   const go = useCallback((r) => {
     setRoute(r);
-    const path = r.v === "home" ? "/" : r.v === "course" ? `/${r.subject}`
-      : r.v === "unit" ? `/${r.subject}/${r.unit}` : r.v === "tutor" ? "/tutor"
-        : r.v === "admin" ? "/admin" : null;
+    const path = r.v === "home" || r.v === "landing" ? "/"
+      : r.v === "signin" ? "/signin" : r.v === "signup" ? "/signup"
+      : r.v === "forgot" ? "/forgot" : r.v === "reset" ? "/reset"
+      : r.v === "course" ? `/${r.subject}`
+      : r.v === "bank" ? `/${r.subject}/bank`
+        : r.v === "planner" ? "/planner" : r.v === "analytics" ? "/analytics"
+          : r.v === "saved" ? "/saved" : r.v === "tests" ? "/tests"
+        : r.v === "unit" ? `/${r.subject}/${r.unit}` : r.v === "tutor" ? "/tutor"
+          : r.v === "pricing" ? "/pricing"
+          : r.v === "admin" ? "/admin" : null;
     /* Practice, mock and result screens carry state in memory, so they
        deliberately leave the URL on the page the student came from. */
     if (path && path !== window.location.pathname) window.history.pushState(null, "", path);
@@ -641,6 +1113,25 @@ export default function App() {
   }, [go]);
 
   const [loadError, setLoadError] = useState("");
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [admin, setAdmin] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await getSession();
+      setUser(data?.session?.user || null);
+      setAuthReady(true);
+    })();
+    return onAuth(async (session) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        const remote = await loadProgress();
+        if (remote) setMe((p) => ({ ...p, ...remote, theme: p.theme }));
+        setAdmin(await isAdmin());
+      } else setAdmin(false);
+    });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -680,11 +1171,33 @@ export default function App() {
     const key = `${s.subject}-${s.unit}`;
     const cur = unit[key] || { a: 0, c: 0 };
     unit[key] = { a: cur.a + s.items.length, c: cur.c + correct };
-    const nm = { ...me, unit };
-    setMe(nm); saveMe(nm);
-  }, [me]);
 
-  if (!ready) return <div className="eq"><style>{CSS}</style><div className="wrap z" style={{ paddingTop: 90, color: "var(--tx3)" }}><span className="spin" /> Loading</div></div>;
+    /* Topic level progress drives the question bank rows. */
+    const topic = { ...(me.topic || {}) };
+    const answered = new Set(me.answered || []);
+    const missed = new Set(me.missed || []);
+    s.items.forEach((it) => {
+      answered.add(it.id);
+      if (it.correct) missed.delete(it.id); else missed.add(it.id);
+      const code = it.q?.topic;
+      if (!code) return;
+      const k = `${s.subject}-${code}`;
+      const c = topic[k] || { a: 0, c: 0 };
+      topic[k] = { a: c.a + 1, c: c.c + (it.correct ? 1 : 0) };
+    });
+
+    /* One entry per day drives the streak and the daily goal on the dashboard. */
+    const days = { ...(me.days || {}) };
+    const dk = new Date().toISOString().slice(0, 10);
+    days[dk] = (days[dk] || 0) + s.items.length;
+    const recent = Object.fromEntries(Object.entries(days).sort().slice(-180));
+
+    const nm = { ...me, unit, topic, days: recent, answered: [...answered].slice(-4000), missed: [...missed].slice(-2000) };
+    setMe(nm); saveMe(nm);
+    if (user) { try { await saveProgress(user.id, { unit, topic, days: recent, answered: nm.answered, missed: nm.missed }); } catch { /* offline */ } }
+  }, [me, user]);
+
+  if (!ready || !authReady) return <div className="eq"><style>{CSS}</style><div className="wrap z" style={{ paddingTop: 90, color: "var(--tx3)" }}><span className="spin" /> Loading</div></div>;
 
   const accent = route.subject === "micro" ? "var(--micro)" : "var(--macro)";
   const nav = { go, theme: me.theme, toggleTheme };
@@ -693,6 +1206,22 @@ export default function App() {
     <div className={"eq" + (me.theme === "light" ? " light" : "")} style={{ "--accent": accent }}>
       <style>{CSS}</style>
       <div className="z">
+        {route.v === "reset" ? <ResetPage go={go} />
+        : !user && route.v !== "admin" ? (
+          route.v === "signin" || route.v === "signup"
+            ? <AuthPage mode={route.v} go={go} nav={nav} />
+            : route.v === "forgot" ? <ForgotPage go={go} />
+              : <Landing nav={nav} go={go} />
+        ) : route.v === "admin" ? (
+          <Admin bank={bank} setBank={setBank} refreshBank={refreshBank} go={go} admin={admin} />
+        ) : route.v === "practice" || route.v === "mock" ? (
+          <div className="solo">
+            {route.v === "practice"
+              ? <Practice {...route} go={go} onFinish={recordSession} nav={nav} />
+              : <Mock {...route} go={go} onFinish={recordSession} nav={nav} />}
+          </div>
+        ) : (
+        <Shell nav={nav} active={shellKey(route)}>
         {loadError && (
           <div className="wrap" style={{ paddingTop: 16 }}>
             <div className="note" style={{ borderLeftColor: "var(--no)" }}>
@@ -702,15 +1231,20 @@ export default function App() {
             </div>
           </div>
         )}
-        {route.v === "home" && <Home bank={bank} me={me} nav={nav} />}
+        {(route.v === "home" || route.v === "landing" || route.v === "signin" || route.v === "signup" || route.v === "forgot") && <Dashboard bank={bank} me={me} user={user} nav={nav} />}
         {route.v === "course" && <Course subject={route.subject} bank={bank} me={me} nav={nav} />}
+        {route.v === "bank" && <Bank subject={route.subject} bank={bank} me={me} nav={nav} />}
+        {route.v === "planner" && <Planner bank={bank} me={me} nav={nav} />}
+        {route.v === "analytics" && <Analytics bank={bank} me={me} nav={nav} />}
+        {route.v === "saved" && <Saved bank={bank} me={me} nav={nav} />}
+        {route.v === "tests" && <Tests bank={bank} nav={nav} />}
         {route.v === "unit" && <UnitPage subject={route.subject} unit={route.unit} bank={bank} me={me} nav={nav} />}
-        {route.v === "practice" && <Practice {...route} go={go} onFinish={recordSession} />}
         {route.v === "results" && <Results {...route} nav={nav} />}
-        {route.v === "mock" && <Mock {...route} go={go} onFinish={recordSession} />}
         {route.v === "mockresult" && <MockResult {...route} bands={bank.bands} nav={nav} />}
         {route.v === "tutor" && <Tutor nav={nav} />}
-        {route.v === "admin" && <Admin bank={bank} setBank={setBank} refreshBank={refreshBank} go={go} />}
+        {route.v === "pricing" && <Pricing nav={nav} />}
+        </Shell>
+        )}
       </div>
     </div>
   );
@@ -718,33 +1252,449 @@ export default function App() {
 
 /* ---------------------------- chrome ---------------------------- */
 
-function Nav({ nav, active }) {
-  const { go, theme, toggleTheme } = nav;
+
+/* ---------------------------- auth artwork ---------------------------- */
+
+function AuthArt() {
   return (
-    <div className="nav">
-      <div className="wrap navin">
-        <button className="logo" onClick={() => go({ v: "home" })} aria-label="Equilibrium home">
-          <Mark /><span className="wm">Equilibrium</span>
-        </button>
-        <div className="nlinks">
-          <button className={"nlink" + (active === "micro" ? " on" : "")} onClick={() => go({ v: "course", subject: "micro" })}>Micro</button>
-          <button className={"nlink" + (active === "macro" ? " on" : "")} onClick={() => go({ v: "course", subject: "macro" })}>Macro</button>
-          <button className={"nlink hideM" + (active === "tutor" ? " on" : "")} onClick={() => go({ v: "tutor" })}>Ask AI</button>
-          <button className="tgl" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark" : "Switch to light"}>
-            <ThemeIcon light={theme === "light"} />
+    <svg viewBox="0 0 420 380" role="img" aria-label="Supply and demand meeting at equilibrium above a city skyline">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0A4841" /><stop offset="100%" stopColor="#0B5A50" />
+        </linearGradient>
+      </defs>
+      <rect x="18" y="14" width="384" height="250" rx="16" fill="url(#sky)" stroke="rgba(255,255,255,.14)" />
+      <g stroke="rgba(255,255,255,.08)">
+        {[0, 1, 2, 3, 4].map((i) => <line key={i} x1="46" y1={54 + i * 42} x2="378" y2={54 + i * 42} />)}
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => <line key={"v" + i} x1={62 + i * 50} y1="40" x2={62 + i * 50} y2="236" />)}
+      </g>
+      <line x1="46" y1="34" x2="46" y2="238" stroke="rgba(255,255,255,.35)" strokeWidth="1.6" />
+      <line x1="40" y1="238" x2="386" y2="238" stroke="rgba(255,255,255,.35)" strokeWidth="1.6" />
+      <line x1="62" y1="226" x2="356" y2="58" stroke="#2FC0CD" strokeWidth="3" strokeLinecap="round" />
+      <line x1="62" y1="62" x2="352" y2="228" stroke="#F0A93A" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="208" cy="143" r="20" fill="#FFFFFF" opacity=".14" />
+      <circle cx="208" cy="143" r="6.5" fill="#FFFFFF" />
+      <text x="360" y="54" fill="#2FC0CD" fontSize="14" fontWeight="600" fontFamily="JetBrains Mono">S</text>
+      <text x="356" y="238" fill="#F0A93A" fontSize="14" fontWeight="600" fontFamily="JetBrains Mono">D</text>
+      <g opacity=".95">
+        <rect x="18" y="292" width="122" height="66" rx="12" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.16)" />
+        <text x="34" y="318" fill="#9BC6BC" fontSize="11" fontFamily="Inter">Predicted score</text>
+        <text x="34" y="344" fill="#fff" fontSize="22" fontWeight="600" fontFamily="JetBrains Mono">5</text>
+        <rect x="150" y="292" width="140" height="66" rx="12" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.16)" />
+        <text x="166" y="318" fill="#9BC6BC" fontSize="11" fontFamily="Inter">Topics covered</text>
+        <text x="166" y="344" fill="#fff" fontSize="22" fontWeight="600" fontFamily="JetBrains Mono">76</text>
+        <rect x="300" y="292" width="102" height="66" rx="12" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.16)" />
+        <text x="316" y="318" fill="#9BC6BC" fontSize="11" fontFamily="Inter">Courses</text>
+        <text x="316" y="344" fill="#fff" fontSize="22" fontWeight="600" fontFamily="JetBrains Mono">2</text>
+      </g>
+    </svg>
+  );
+}
+
+/* ---------------------------- landing ---------------------------- */
+
+function Landing({ nav, go }) {
+  return (
+    <>
+      <div className="land">
+        <div className="lnav">
+          <button className="logo" onClick={() => go({ v: "landing" })}>
+            <Brand />
           </button>
+          <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button className="tgl" onClick={nav.toggleTheme} aria-label="Switch theme">
+              <ThemeIcon light={nav.theme === "light"} />
+            </button>
+            <button className="btn ghost sm" onClick={() => go({ v: "signin" })}>Log in</button>
+          </span>
+        </div>
+
+        <div className="lhero">
+          <div>
+            <h1>Your all-in-one resource to <span className="ul">ace AP Econ</span></h1>
+            <p>Every topic in the course outline, exam-style questions with written explanations, timed full-length tests with a predicted score, and a tutor that answers in the language of the course.</p>
+            <div className="heroact">
+              <button className="btn" onClick={() => go({ v: "signup" })}>Get started for free</button>
+            </div>
+          </div>
+          <HeroPlot />
+        </div>
+
+        <div className="feats">
+          <div className="feat"><h3>Built on the course outline</h3><p>Micro and Macro split into all six units and every numbered topic, so you always know what you are practising.</p></div>
+          <div className="feat"><h3>Weighted like the real exam</h3><p>Full-length tests draw from each unit in College Board proportions and return a composite out of 90.</p></div>
+          <div className="feat"><h3>A tutor that knows the graphs</h3><p>Ask about crowding out or excess capacity and get an answer built around the curves you have to draw.</p></div>
         </div>
       </div>
+    </>
+  );
+}
+
+/* ---------------------------- sign up and sign in ---------------------------- */
+
+function AuthPage({ mode, go, nav }) {
+  const isUp = mode === "signup";
+  const [name, setName] = useState(""), [email, setEmail] = useState(""), [pw, setPw] = useState("");
+  const [err, setErr] = useState(""), [busy, setBusy] = useState(false), [sent, setSent] = useState(false);
+
+  const submit = async () => {
+    setBusy(true); setErr("");
+    try {
+      if (isUp) {
+        await signUp(email.trim(), pw, name.trim());
+        setSent(true);
+      } else {
+        await signIn(email.trim(), pw);
+      }
+    } catch (e) {
+      const m = e.message || "";
+      setErr(m.includes("Invalid login") ? "That email and password don't match."
+        : m.includes("already") ? "There is already an account with that email."
+          : m.includes("6 characters") ? "Use a password of at least six characters."
+            : m || "Something went wrong. Try again.");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="auth">
+      <div className="authform">
+        <button className="logo" style={{ marginBottom: 30 }} onClick={() => go({ v: "landing" })}>
+          <Brand />
+        </button>
+        {sent ? (
+          <>
+            <h1>Check your email</h1>
+            <p className="lead">We sent a confirmation link to {email}. Open it and you are in.</p>
+            <button className="btn ghost" onClick={() => go({ v: "signin" })}>Back to log in</button>
+          </>
+        ) : (
+          <>
+            <h1>{isUp ? "Create your free account" : "Welcome back"}</h1>
+            <p className="lead">{isUp ? "Practice AP Microeconomics and Macroeconomics, and keep your progress on every device." : "Pick up where you left off."}</p>
+            {isUp && (
+              <label className="field"><span>First name</span>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Munis" /></label>
+            )}
+            <label className="field"><span>Email</span>
+              <input type="text" autoComplete="username" value={email}
+                onChange={(e) => { setEmail(e.target.value); setErr(""); }} placeholder="you@example.com" /></label>
+            <label className="field"><span>Password</span>
+              <input type="password" autoComplete={isUp ? "new-password" : "current-password"} value={pw}
+                onChange={(e) => { setPw(e.target.value); setErr(""); }}
+                onKeyDown={(e) => e.key === "Enter" && submit()} /></label>
+            {err && <div style={{ color: "var(--no)", fontSize: 13.5, marginBottom: 14 }}>{err}</div>}
+            <button className="btn" onClick={submit} disabled={busy || !email || !pw || (isUp && !name)}>
+              {busy ? <><span className="spin" /> Working</> : isUp ? "Create account" : "Log in"}
+            </button>
+            {!isUp && (
+              <div className="swap" style={{ marginTop: 14 }}>
+                <button onClick={() => go({ v: "forgot" })}>Forgot your password?</button>
+              </div>
+            )}
+            <div className="swap">
+              {isUp
+                ? <>Already have an account? <button onClick={() => go({ v: "signin" })}>Log in</button></>
+                : <>New here? <button onClick={() => go({ v: "signup" })}>Create a free account</button></>}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="authart"><AuthArt /></div>
     </div>
   );
 }
 
-const Foot = () => (
-  <div className="wrap"><div className="foot">
-    <span>Equilibrium — AP Microeconomics and Macroeconomics</span>
-    <span>Aligned to the College Board course and exam description</span>
-  </div></div>
-);
+
+/* ---------------------------- password recovery ---------------------------- */
+
+function ForgotPage({ go }) {
+  const [email, setEmail] = useState(""), [sent, setSent] = useState(false);
+  const [err, setErr] = useState(""), [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setBusy(true); setErr("");
+    try { await sendReset(email.trim()); setSent(true); }
+    catch (e) { setErr(e.message || "Could not send that. Check the address and try again."); }
+    setBusy(false);
+  };
+
+  return (
+    <div className="auth">
+      <div className="authform">
+        <button className="logo" style={{ marginBottom: 30 }} onClick={() => go({ v: "landing" })}>
+          <Brand />
+        </button>
+        {sent ? (
+          <>
+            <h1>Check your email</h1>
+            <p className="lead">If there is an account for {email}, a reset link is on its way. It expires in an hour.</p>
+            <button className="btn ghost" onClick={() => go({ v: "signin" })}>Back to log in</button>
+          </>
+        ) : (
+          <>
+            <h1>Reset your password</h1>
+            <p className="lead">Enter the email you signed up with and we will send you a link.</p>
+            <label className="field"><span>Email</span>
+              <input type="text" autoFocus value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); }}
+                onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="you@example.com" /></label>
+            {err && <div style={{ color: "var(--no)", fontSize: 13.5, marginBottom: 14 }}>{err}</div>}
+            <button className="btn" onClick={submit} disabled={busy || !email}>
+              {busy ? <><span className="spin" /> Sending</> : "Send the link"}
+            </button>
+            <div className="swap"><button onClick={() => go({ v: "signin" })}>Back to log in</button></div>
+          </>
+        )}
+      </div>
+      <div className="authart"><AuthArt /></div>
+    </div>
+  );
+}
+
+function ResetPage({ go }) {
+  const [pw, setPw] = useState(""), [pw2, setPw2] = useState("");
+  const [err, setErr] = useState(""), [busy, setBusy] = useState(false), [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (pw.length < 6) { setErr("Use at least six characters."); return; }
+    if (pw !== pw2) { setErr("The two passwords do not match."); return; }
+    setBusy(true); setErr("");
+    try { await updatePassword(pw); setDone(true); }
+    catch (e) {
+      setErr(e.message?.includes("session")
+        ? "This link has expired. Ask for a new one."
+        : e.message || "Could not change the password.");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="auth">
+      <div className="authform">
+        <button className="logo" style={{ marginBottom: 30 }} onClick={() => go({ v: "landing" })}>
+          <Brand />
+        </button>
+        {done ? (
+          <>
+            <h1>Password changed</h1>
+            <p className="lead">You are signed in with the new password.</p>
+            <button className="btn" onClick={() => go({ v: "home" })}>Go to your dashboard</button>
+          </>
+        ) : (
+          <>
+            <h1>Choose a new password</h1>
+            <p className="lead">Open this page from the link in your email, then set the password you want.</p>
+            <label className="field"><span>New password</span>
+              <input type="password" autoFocus autoComplete="new-password" value={pw}
+                onChange={(e) => { setPw(e.target.value); setErr(""); }} /></label>
+            <label className="field"><span>Repeat it</span>
+              <input type="password" autoComplete="new-password" value={pw2}
+                onChange={(e) => { setPw2(e.target.value); setErr(""); }}
+                onKeyDown={(e) => e.key === "Enter" && submit()} /></label>
+            {err && <div style={{ color: "var(--no)", fontSize: 13.5, marginBottom: 14 }}>{err}</div>}
+            <button className="btn" onClick={submit} disabled={busy || !pw || !pw2}>
+              {busy ? <><span className="spin" /> Saving</> : "Save the password"}
+            </button>
+          </>
+        )}
+      </div>
+      <div className="authart"><AuthArt /></div>
+    </div>
+  );
+}
+
+/* ---------------------------- dashboard ---------------------------- */
+
+/* ---------------------------- plans and credits ----------------------------
+   Equity is the AI tutor. Free has none; Pro and Max get a daily credit
+   allowance sized so AI spend stays near 15% of what the plan earns.
+   The counter here is the student's view of it; the real limit is enforced
+   server side in the tutor function, which is what actually spends money.
+--------------------------------------------------------------------------- */
+
+const PLANS = {
+  free: { key: "free", name: "Free", monthly: 0, yearly: 0, credits: 0 },
+  pro: { key: "pro", name: "Pro", monthly: 8, yearly: 79, credits: 12 },
+  max: { key: "max", name: "Max", monthly: 20, yearly: 199, credits: 30 },
+};
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+function useCredits() {
+  const [plan, setPlan] = useLocal("equilibrium:plan", "free");
+  const [log, setLog] = useLocal("equilibrium:credits", { date: todayKey(), used: 0 });
+  const used = log.date === todayKey() ? log.used : 0;
+  const allowance = (PLANS[plan] || PLANS.free).credits;
+  return {
+    plan, setPlan, allowance,
+    left: Math.max(0, allowance - used),
+    spend: (n = 1) => setLog({ date: todayKey(), used: used + n }),
+  };
+}
+
+/* Consecutive days with at least one question answered. */
+function streakOf(days) {
+  const set = new Set(Object.keys(days || {}).filter((d) => days[d] > 0));
+  if (!set.size) return 0;
+  const d = new Date();
+  if (!set.has(todayKey())) d.setDate(d.getDate() - 1);   // today still counts as alive
+  let n = 0;
+  for (;;) {
+    const k = d.toISOString().slice(0, 10);
+    if (!set.has(k)) break;
+    n += 1;
+    d.setDate(d.getDate() - 1);
+  }
+  return n;
+}
+
+/* AP exams sit in the first half of May; the date is editable on the card. */
+function defaultExamDate() {
+  const now = new Date();
+  const may = new Date(now.getFullYear(), 4, 14);
+  if (now > may) may.setFullYear(now.getFullYear() + 1);
+  return may.toISOString().slice(0, 10);
+}
+const daysUntil = (iso) => Math.max(0, Math.ceil((new Date(iso + "T00:00:00") - new Date(todayKey() + "T00:00:00")) / 86400000));
+
+function CreditChip({ nav }) {
+  const { plan, allowance, left } = useCredits();
+  if (plan === "free") {
+    return <button className="credchip up" onClick={() => nav.go({ v: "pricing" })}>Equity is on Pro — see plans</button>;
+  }
+  return (
+    <button className={"credchip" + (left === 0 ? " out" : "")} onClick={() => nav.go({ v: "pricing" })}>
+      <span className="dotc" /> {left} of {allowance} Equity credits left today
+    </button>
+  );
+}
+
+function Dashboard({ bank, me, user, nav }) {
+  const { go } = nav;
+  const [savedIds] = useLocal("equilibrium:saved", []);
+  const [examDate, setExamDate] = useLocal("equilibrium:exam", defaultExamDate());
+  const [goal] = useLocal("equilibrium:goal", 20);
+  const [last] = useLocal("equilibrium:last", null);
+  const left = daysUntil(examDate);
+  const doneToday = (me.days || {})[todayKey()] || 0;
+  const streak = streakOf(me.days);
+
+  /* Rebuild the set the student was last working on, straight from the bank. */
+  const resume = () => {
+    if (!last) return go({ v: "bank", subject: "micro" });
+    const pool = bank.questions.filter((q) => q.subject === last.subject
+      && (!last.codes?.length || last.codes.includes(q.topic)));
+    if (!pool.length) return go({ v: "bank", subject: last.subject });
+    go({ v: "practice", subject: last.subject, unit: 0, pool });
+  };
+  const hour = new Date().getHours();
+  const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const name = user?.user_metadata?.name || (user?.email || "").split("@")[0];
+
+  let a = 0, c = 0;
+  Object.values(me.unit || {}).forEach((v) => { a += v.a; c += v.c; });
+  const missed = (me.missed || []).length;
+
+  const next = ["micro", "macro"].flatMap((sub) =>
+    UNITS[sub].flatMap((u) => (TOPICS[sub][u.n] || []).map(([code, title]) => {
+      const st = (me.topic || {})[`${sub}-${code}`];
+      const have = bank.questions.filter((q) => q.subject === sub && q.topic === code).length;
+      return { sub, code, title, weight: u.weight, have, p: st ? pct(st.c, st.a) : null };
+    }))).filter((r) => r.have > 0)
+    .map((r) => ({ ...r, score: r.weight * (r.p === null ? 1 : (100 - r.p) / 100 + 0.15) }))
+    .sort((x, y) => y.score - x.score).slice(0, 4);
+
+  return (
+    <div className="wrap" style={{ paddingTop: 30 }}>
+      <div className="greetrow">
+        <div>
+          <h1 className="greet">{part}, <em>{name}</em></h1>
+          <div className="sub" style={{ color: "var(--tx2)", fontSize: 16 }}>
+            {a ? "Here is where you stand and what to do next." : "Pick a course below and answer your first questions."}
+          </div>
+        </div>
+        <CreditChip nav={nav} />
+      </div>
+
+      <div className="todaygrid">
+        <div className="tcard">
+          <span className="tlab">Exam in</span>
+          <span className="tbig">{left} <small>days</small></span>
+          <input type="date" className="tdate" value={examDate}
+            onChange={(e) => setExamDate(e.target.value || defaultExamDate())} aria-label="Exam date" />
+        </div>
+        <div className="tcard">
+          <span className="tlab">Today's goal</span>
+          <span className="tbig">{doneToday} <small>of {goal}</small></span>
+          <span className="tbar"><i style={{ width: `${Math.min(100, (doneToday / goal) * 100)}%` }} /></span>
+          <span className="thint">{doneToday >= goal ? "Done for today." : `${goal - doneToday} questions to go`}</span>
+        </div>
+        <div className="tcard">
+          <span className="tlab">Streak</span>
+          <span className="tbig">{streak} <small>day{streak === 1 ? "" : "s"}</small></span>
+          <span className="thint">{streak ? "Answer one question to keep it." : "Answer a question to start one."}</span>
+        </div>
+        <button className="tcard go" onClick={resume}>
+          <span className="tlab">Continue where you stopped</span>
+          <span className="tgo">{last ? last.label : "Start with Micro Unit 1"}</span>
+          <span className="tarrow">Resume
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" /></svg>
+          </span>
+        </button>
+      </div>
+
+      <div className="kpis">
+        <div className="kpi2"><div className="v">{a}</div><div className="l">questions attempted</div></div>
+        <div className="kpi2"><div className="v">{a ? pct(c, a) + "%" : "—"}</div><div className="l">current accuracy</div></div>
+        <div className="kpi2"><div className="v">{savedIds.length}</div><div className="l">saved questions</div></div>
+        <div className="kpi2"><div className="v" style={{ color: missed ? "var(--no)" : "var(--tx)" }}>{missed}</div><div className="l">still getting wrong</div></div>
+      </div>
+
+      <div className="dash">
+        <div>
+          <div className="panel">
+            <h3>What to work on next</h3>
+            <p className="ptext">Ranked by how much each topic is worth on the exam against how you are doing on it.</p>
+            {next.length === 0
+              ? <div className="empty" style={{ padding: 26 }}>No questions in the bank yet.</div>
+              : next.map((r) => (
+                <button className="nextrow" key={r.sub + r.code}
+                  style={{ "--accent": r.sub === "micro" ? "var(--micro)" : "var(--macro)" }}
+                  onClick={() => go({ v: "practice", subject: r.sub, unit: 0, pool: shuffle(bank.questions.filter((q) => q.subject === r.sub && q.topic === r.code)) })}>
+                  <span><span className="num" style={{ color: r.sub === "micro" ? "var(--micro)" : "var(--macro)", marginRight: 10 }}>{r.code}</span>{r.title}</span>
+                  <span className="hint">{r.p === null ? "not started" : r.p + "%"}</span>
+                </button>
+              ))}
+          </div>
+
+          <div className="panel">
+            <h3>Keep going</h3>
+            <p className="ptext">Two courses, twelve units, every numbered topic from the course outline.</p>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <button className="btn sm acc" style={{ "--accent": "var(--micro)" }} onClick={() => go({ v: "bank", subject: "micro" })}>Micro question bank</button>
+              <button className="btn sm acc" style={{ "--accent": "var(--macro)" }} onClick={() => go({ v: "bank", subject: "macro" })}>Macro question bank</button>
+              <button className="btn sm ghost" onClick={() => go({ v: "tests" })}>Full-length test</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="panel">
+            <h3>Fix your mistakes</h3>
+            <p className="ptext">{missed ? `${missed} question${missed === 1 ? "" : "s"} you have missed and not yet got right.` : "Nothing outstanding. Questions you miss collect here."}</p>
+            <button className="btn sm" disabled={!missed} onClick={() => go({ v: "saved" })}>Start review</button>
+          </div>
+          <div className="panel">
+            <h3>Ask Equity</h3>
+            <p className="ptext">Equity stays inside AP Micro and Macro and answers with the graphs.</p>
+            <button className="btn sm ghost" onClick={() => go({ v: "tutor" })}>Open the tutor</button>
+          </div>
+        </div>
+      </div>
+      <div style={{ height: 50 }} />
+    </div>
+  );
+}
 
 /* ---------------------------- home ---------------------------- */
 
@@ -781,7 +1731,7 @@ function Home({ bank, me, nav }) {
 
   return (
     <>
-      <Nav nav={nav} active="home" />
+      
       <div className="wrap">
         <div className="hero">
           <div>
@@ -801,7 +1751,6 @@ function Home({ bank, me, nav }) {
           <div className="feat"><h3>A tutor that knows the course</h3><p>Stuck on crowding out or excess capacity? Ask, and get an answer built around the graphs you will have to draw.</p></div>
         </div>
       </div>
-      <Foot />
     </>
   );
 }
@@ -828,7 +1777,7 @@ function Course({ subject, bank, me, nav }) {
 
   return (
     <>
-      <Nav nav={nav} active={subject} />
+      
       <div className="wrap">
         <div className="crumb"><button onClick={() => go({ v: "home" })}>Equilibrium</button><span>/</span><span>AP {SNAME[subject]}</span></div>
         <div className="phead">
@@ -877,13 +1826,14 @@ function Course({ subject, bank, me, nav }) {
               })}
             </div>
             <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", marginBottom: 34 }}>
-              <button className="btn acc" onClick={mixed} disabled={!bank.questions.some((q) => q.subject === subject)}>Mixed set from all units</button>
-              <span className="hint">Up to 20 questions drawn from the whole course</span>
+              <button className="btn acc" onClick={() => go({ v: "bank", subject })}>Open the question bank</button>
+              <button className="btn ghost" onClick={mixed} disabled={!bank.questions.some((q) => q.subject === subject)}>Mixed set from all units</button>
+              <span className="hint">The bank breaks the course into the topics the exam uses</span>
             </div>
 
             <div className="mockcard">
               <div>
-                <span className="mk">Mock exam</span>
+                <span className="mk">Full-length test</span>
                 <h3>Sit the paper and get a predicted score</h3>
                 <p>A timed multiple-choice paper drawn in College Board unit proportions, then a full score report: composite out of 90 and a predicted 1 to 5.</p>
                 <div className="ml">
@@ -899,7 +1849,6 @@ function Course({ subject, bank, me, nav }) {
           </>
         )}
       </div>
-      <Foot />
     </>
   );
 }
@@ -915,7 +1864,7 @@ function UnitPage({ subject, unit, bank, me, nav }) {
 
   return (
     <>
-      <Nav nav={nav} active={subject} />
+      
       <div className="wrap" style={{ maxWidth: 900 }}>
         <div className="crumb">
           <button onClick={() => go({ v: "home" })}>Equilibrium</button><span>/</span>
@@ -967,100 +1916,841 @@ function UnitPage({ subject, unit, bank, me, nav }) {
         )}
         <div style={{ height: 56 }} />
       </div>
-      <Foot />
+    </>
+  );
+}
+
+
+
+/* ---------------------------- icons ---------------------------- */
+const I = {
+  plan: "M2.5 6.5h13M2.5 6.5 4 3h10l1.5 3.5M2.5 6.5V15h13V6.5M7 9.5h4",
+  home: <path d="M2.5 7.2 9 2.2l6.5 5V15a.8.8 0 0 1-.8.8h-3.4v-4.4H6.7v4.4H3.3a.8.8 0 0 1-.8-.8Z" />,
+  tutor: <path d="M2.6 3.5h12.8v8.2H9.9L6.4 14.6v-2.9H2.6Z" />,
+  planner: <path d="M3 4.2h12v11H3Zm0 3.4h12M6.2 2.4v3.2m5.6-3.2v3.2" />,
+  analytics: <path d="M3 15.2V9m4.7 6.2V3.6m4.7 11.6v-7" />,
+  saved: <path d="M4.6 2.6h8.8v13l-4.4-3.3-4.4 3.3Z" />,
+  bank: <path d="M3 4.4h12v9.2H3Zm0 3.1h12M7.2 7.5v6.1" />,
+  test: <path d="M9 2.6a6.4 6.4 0 1 1 0 12.8A6.4 6.4 0 0 1 9 2.6Zm0 3v3.6l2.4 1.6" />,
+};
+const Icon = ({ d }) => (
+  <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor"
+    strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">{d}</svg>
+);
+
+/* ---------------------------- app shell ---------------------------- */
+
+function Shell({ nav, active, children }) {
+  const { go, theme, toggleTheme } = nav;
+  const [open, setOpen] = useState(false);
+  const item = (key, label, icon, route, dot) => (
+    <button className={"sitem" + (active === key ? " on" : "")} title={label}
+      onClick={(e) => { e.currentTarget.blur(); setOpen(false); go(route); }}>
+      <Icon d={icon} /><span className="lbl">{label}</span>
+      {dot && <span className="sdot" style={{ background: dot }} />}
+    </button>
+  );
+
+  return (
+    <div className="shell">
+      {open && <div className="scrim" onClick={() => setOpen(false)} />}
+      <aside className={"side" + (open ? " open" : "")}>
+        <button className="brand" title="AP Equilibrium"
+          onClick={(e) => { e.currentTarget.blur(); setOpen(false); go({ v: "home" }); }}>
+          <Brand size={20} mark={26} />
+        </button>
+        {item("home", "Home", I.home, { v: "home" })}
+        {item("tutor", "Ask Equity", I.tutor, { v: "tutor" })}
+        {item("planner", "Study planner", I.planner, { v: "planner" })}
+        {item("analytics", "Analytics", I.analytics, { v: "analytics" })}
+        {item("saved", "Saved and mistakes", I.saved, { v: "saved" })}
+        <div className="sgroup"><span>Practice</span></div>
+        {item("bank-micro", "Question bank · Micro", I.bank, { v: "bank", subject: "micro" }, "var(--micro)")}
+        {item("bank-macro", "Question bank · Macro", I.bank, { v: "bank", subject: "macro" }, "var(--macro)")}
+        {item("test", "Full-length test", I.test, { v: "tests" })}
+        <div className="sfoot">
+          {item("pricing", "Plans", I.plan, { v: "pricing" })}
+          <button className="sitem" title="Switch theme"
+            onClick={(e) => { e.currentTarget.blur(); toggleTheme(); }}>
+            <ThemeIcon light={theme === "light"} />
+            <span className="lbl">{theme === "light" ? "Dark mode" : "Light mode"}</span>
+          </button>
+          <button className="sitem" title="Log out"
+            onClick={async (e) => { e.currentTarget.blur(); await signOut(); go({ v: "landing" }); }}>
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5"
+              strokeLinecap="round" strokeLinejoin="round"><path d="M7 15.4H3.6V2.6H7M11.4 12.2 14.6 9l-3.2-3.2M14.6 9H7" /></svg>
+            <span className="lbl">Log out</span>
+          </button>
+        </div>
+      </aside>
+      <div className="main">
+        <div className="railveil" aria-hidden="true" />
+        <div className="mtop">
+          <button className="mini" onClick={() => setOpen(true)} aria-label="Open menu">☰</button>
+          <Brand size={17} mark={21} />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------- question surface ----------------------------
+   Shared by practice and the full-length test: circled letters, an answer
+   eliminator, text highlighting, a private note, and check-then-next.
+--------------------------------------------------------------------------- */
+
+/* Every component holding the same key stays in step: the plan chip in the
+   header and the Equity button in a question must never disagree. */
+const localSubs = new Map();
+
+function useLocal(key, initial) {
+  const [v, setV] = useState(() => {
+    try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : initial; } catch { return initial; }
+  });
+
+  useEffect(() => {
+    const subs = localSubs.get(key) || new Set();
+    subs.add(setV);
+    localSubs.set(key, subs);
+    const fromTab = (e) => {
+      if (e.key !== key) return;
+      try { setV(e.newValue ? JSON.parse(e.newValue) : initial); } catch { /* ignore */ }
+    };
+    window.addEventListener("storage", fromTab);
+    return () => { subs.delete(setV); window.removeEventListener("storage", fromTab); };
+  }, [key]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* The write happens here rather than inside the state updater: React drops
+     pending updaters when a component unmounts, and this setter is often the
+     last thing a screen does before navigating away. */
+  const ref = useRef(v);
+  ref.current = v;
+  const set = useCallback((next) => {
+    const val = typeof next === "function" ? next(ref.current) : next;
+    ref.current = val;
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* private mode */ }
+    setV(val);
+    (localSubs.get(key) || []).forEach((fn) => { if (fn !== setV) fn(val); });
+  }, [key]);
+
+  return [v, set];
+}
+
+const HL_COLORS = ["#FCE588", "#BFDCF5", "#F8CCE0"];
+
+function Highlightable({ text, marks, onAdd, onRemove }) {
+  const ref = useRef(null);
+  const [pop, setPop] = useState(null);
+
+  const grab = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !ref.current) { setPop(null); return; }
+    const range = sel.getRangeAt(0);
+    if (!ref.current.contains(range.commonAncestorContainer)) return;
+    const pre = range.cloneRange();
+    pre.selectNodeContents(ref.current);
+    pre.setEnd(range.startContainer, range.startOffset);
+    const start = Math.max(0, Math.min(text.length, pre.toString().length));
+    const end = Math.max(0, Math.min(text.length, start + range.toString().length));
+    if (end <= start) return;
+    const r = range.getBoundingClientRect();
+    const box = ref.current.getBoundingClientRect();
+    setPop({ start, end, x: r.left - box.left + r.width / 2, y: r.top - box.top - 44 });
+  };
+
+  const apply = (c) => {
+    onAdd({ start: pop.start, end: pop.end, c });
+    window.getSelection()?.removeAllRanges();
+    setPop(null);
+  };
+
+  /* Close the palette on any press outside it, on Escape, or on scroll. */
+  const popRef = useRef(null);
+  useEffect(() => {
+    if (!pop) return;
+    const away = (e) => { if (popRef.current && !popRef.current.contains(e.target)) setPop(null); };
+    const esc = (e) => { if (e.key === "Escape") setPop(null); };
+    const close = () => setPop(null);
+    const t = setTimeout(() => {
+      document.addEventListener("mousedown", away);
+      document.addEventListener("touchstart", away);
+    }, 0);
+    window.addEventListener("keydown", esc);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("touchstart", away);
+      window.removeEventListener("keydown", esc);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [pop]);
+
+  /* Colour every character, then walk the run. Overlapping marks simply
+     paint over each other, so no span is ever emitted twice. */
+  const pieces = useMemo(() => {
+    const paint = new Array(text.length).fill(null);
+    marks.forEach((m) => {
+      const from = Math.max(0, m.start), to = Math.min(text.length, m.end);
+      for (let i = from; i < to; i++) paint[i] = m.c || HL_COLORS[0];
+    });
+    const out = [];
+    let i = 0;
+    while (i < text.length) {
+      const c = paint[i];
+      let j = i + 1;
+      while (j < text.length && paint[j] === c) j++;
+      out.push({ t: text.slice(i, j), c, start: i, end: j });
+      i = j;
+    }
+    return out;
+  }, [text, marks]);
+
+  return (
+    <p className="qbody" ref={ref} onMouseUp={grab} onTouchEnd={grab}>
+      {pieces.map((p, i) => p.c
+        ? <mark key={i} style={{ background: p.c, color: "#12171F" }}
+          title="Click to remove" onClick={() => onRemove(p.start, p.end)}>{p.t}</mark>
+        : <span key={i}>{p.t}</span>)}
+      {pop && (
+        <span className="hlpop" ref={popRef} style={{ left: Math.max(0, pop.x - 46), top: Math.max(-10, pop.y) }}
+          onMouseDown={(e) => e.preventDefault()}>
+          {HL_COLORS.map((c) => (
+            <button key={c} className="swatch" style={{ background: c }} onClick={() => apply(c)}
+              aria-label="Highlight in this colour" />
+          ))}
+
+        </span>
+      )}
+    </p>
+  );
+}
+
+
+/* Small round status marks used by the question map legend and tiles. */
+function StatusIcon({ kind, size = 18 }) {
+  const bg = { ok: "var(--ok)", no: "var(--no)", pend: "var(--micro)", rev: "var(--micro)" }[kind];
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" aria-hidden="true" style={{ flex: "0 0 auto" }}>
+      {kind === "pend" ? (
+        <><circle cx="9" cy="9" r="8" fill={bg} /><circle cx="9" cy="9" r="3.6" fill="var(--bg2)" /></>
+      ) : kind === "rev" ? (
+        <path d="M4.5 2h9v14L9 12.6 4.5 16z" fill={bg} />
+      ) : (
+        <><circle cx="9" cy="9" r="8" fill={bg} />
+          {kind === "ok"
+            ? <path d="M5.2 9.3 7.8 11.8 12.9 6.4" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+            : <path d="M6.2 6.2l5.6 5.6M11.8 6.2 6.2 11.8" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" />}
+        </>
+      )}
+    </svg>
+  );
+}
+
+function Timer({ seconds, paused, onToggle }) {
+  const [hidden, setHidden] = useState(false);
+  return (
+    <div className="timer">
+      <div className={"digits" + (hidden ? " hid" : "")}>{mmss(seconds)}</div>
+      <div className="tctl">
+        <button className="tbtn2" onClick={onToggle} aria-label={paused ? "Resume the timer" : "Pause the timer"}>
+          {paused
+            ? <svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><path d="M0 0l11 6-11 6z" /></svg>
+            : <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><rect width="3.2" height="12" rx="1" /><rect x="6.8" width="3.2" height="12" rx="1" /></svg>}
+        </button>
+        <button className="tpill" onClick={() => setHidden((v) => !v)}>{hidden ? "Show" : "Hide"}</button>
+      </div>
+    </div>
+  );
+}
+
+function QuestionView({ q, index, total, picked, onPick, revealed, saved, onToggleSave, accentSubject }) {
+  const [elim, setElim] = useState([]);
+  const [elimOn, setElimOn] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [notes, setNotes] = useLocal("equilibrium:notes", {});
+  const [hl, setHl] = useLocal("equilibrium:highlights", {});
+
+  useEffect(() => { setElim([]); setNoteOpen(false); }, [q.id]);
+
+  const marks = hl[q.id] || [];
+  const addMark = (m) => setHl((p) => ({ ...p, [q.id]: [...(p[q.id] || []), m] }));
+  const removeMark = (from, to) => setHl((p) => ({
+    ...p,
+    [q.id]: (p[q.id] || []).flatMap((x) => {
+      if (x.end <= from || x.start >= to) return [x];          // untouched
+      const kept = [];
+      if (x.start < from) kept.push({ ...x, end: from });       // keep the head
+      if (x.end > to) kept.push({ ...x, start: to });           // keep the tail
+      return kept;
+    }),
+  }));
+
+  return (
+    <>
+      <div className="qtop">
+        <span className="qnum">{index + 1}</span>
+        <button className={"qtool" + (saved ? " on" : "")} onClick={onToggleSave}>
+          <svg width="13" height="15" viewBox="0 0 13 15" fill={saved ? "currentColor" : "none"}
+            stroke="currentColor" strokeWidth="1.5"><path d="M1.2 1.2h10.6v12.6L6.5 10l-5.3 3.8Z" /></svg>
+          {saved ? "Saved" : "Mark for review"}
+        </button>
+        <button className={"qtool" + (noteOpen ? " on" : "")} onClick={() => setNoteOpen((v) => !v)}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M2.5 2.5h11v11h-11Zm2.6 3h5.8m-5.8 3h5.8m-5.8 3h3.4" /></svg>
+          {notes[q.id] ? "Note saved" : "Note"}
+        </button>
+        {marks.length > 0 && (
+          <button className="qtool" onClick={() => setHl((p) => ({ ...p, [q.id]: [] }))}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
+              strokeLinecap="round"><path d="M3 13h10M4.6 10.4 9 6l3 3-4.4 4.4Z" /></svg>
+            Clear highlights
+          </button>
+        )}
+        <button className={"qtool" + (elimOn ? " on" : "")} onClick={() => setElimOn((v) => !v)}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="8" cy="8" r="6" /><path d="M3.8 12.2 12.2 3.8" /></svg>
+          Eliminate
+        </button>
+        <span style={{ flex: 1 }} />
+        <span className="hint num">{index + 1} / {total}</span>
+      </div>
+
+      {noteOpen && (
+        <div className="notepad">
+          <textarea rows={3} placeholder="Your note on this question — only you see it."
+            value={notes[q.id] || ""}
+            onChange={(e) => setNotes((p) => ({ ...p, [q.id]: e.target.value }))} />
+        </div>
+      )}
+
+      <Highlightable text={q.stem} marks={marks} onAdd={addMark} onRemove={removeMark} />
+
+      {q.image && (
+        <a className="qfig" href={q.image} target="_blank" rel="noreferrer" title="Open full size">
+          <img src={q.image} alt="Figure for this question" loading="lazy" />
+        </a>
+      )}
+
+      <div>
+        {q.choices.map((c, i) => {
+          let cls = "obtn";
+          if (revealed) {
+            if (i === q.answer) cls += " good";
+            else if (i === picked) cls += " bad";
+          } else if (picked === i) cls += " sel";
+          if (!revealed && elim.includes(i)) cls += " out";
+          return (
+            <div className="orow" key={i}>
+              <button className={cls} disabled={revealed} onClick={() => onPick(i)}>
+                <span className="circ">{L[i]}</span><span>{c}</span>
+              </button>
+              {elimOn && !revealed ? (
+                <button className={"elim" + (elim.includes(i) ? " on" : "")}
+                  aria-label={`Cross out ${L[i]}`}
+                  onClick={() => setElim((p) => (p.includes(i) ? p.filter((x) => x !== i) : [...p, i]))}>
+                  {L[i]}
+                </button>
+              ) : <span />}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+/* ---------------------------- question bank ---------------------------- */
+
+const STATUS = [["all", "All questions"], ["unseen", "Not yet answered"], ["wrong", "Previously missed"]];
+
+function Bank({ subject, bank, me, nav }) {
+  const { go } = nav;
+  const [status, setStatus] = useState("all");
+  const [picked, setPicked] = useState([]);
+
+  const seen = me.topic || {};
+  const wrongIds = me.missed || [];
+
+  const pool = useMemo(() => bank.questions.filter((q) => {
+    if (q.subject !== subject) return false;
+    if (status === "wrong" && !wrongIds.includes(q.id)) return false;
+    if (status === "unseen" && (me.answered || []).includes(q.id)) return false;
+    return true;
+  }), [bank.questions, subject, status, wrongIds, me.answered]);
+
+  const forTopic = (code) => pool.filter((q) => q.topic === code);
+  const total = pool.length;
+
+  /* Questions come in course order: every question of the first topic, then the next. */
+  const byTopic = (list) => list.slice().sort((a, b) => {
+    const [au, at] = String(a.topic || "9.9").split(".").map(Number);
+    const [bu, bt] = String(b.topic || "9.9").split(".").map(Number);
+    return au - bu || at - bt || String(a.id).localeCompare(String(b.id), undefined, { numeric: true });
+  });
+  const [, setLast] = useLocal("equilibrium:last", null);
+  const start = (list, codes, label) => {
+    if (!list.length) return;
+    setLast({ subject, codes: codes || [], label: label || `AP ${SNAME[subject]} · ${codes?.join(", ") || "all topics"}` });
+    go({ v: "practice", subject, unit: 0, pool: byTopic(list) });
+  };
+  const startPicked = () => start(pool.filter((q) => picked.includes(q.topic)), picked);
+  const toggle = (code) => setPicked((p) => (p.includes(code) ? p.filter((x) => x !== code) : [...p, code]));
+
+  const pickedCount = pool.filter((q) => picked.includes(q.topic)).length;
+
+  return (
+    <>
+      
+      <div className="wrap">
+        <div className="crumb">
+          <button onClick={() => go({ v: "home" })}>Equilibrium</button><span>/</span>
+          <button onClick={() => go({ v: "course", subject })}>AP {SNAME[subject]}</button><span>/</span>
+          <span>Question bank</span>
+        </div>
+        <div className="phead">
+          <div>
+            <h1>Question bank</h1>
+            <div className="sub">Every topic in the course outline. Tick the ones you want and practise them together, or open a single topic on its own.</div>
+          </div>
+        </div>
+
+        <div className="filters">
+          {STATUS.map(([k, v]) => (
+            <button key={k} className={"fbtn" + (status === k ? " on" : "")} onClick={() => setStatus(k)}>{v}</button>
+          ))}
+        </div>
+
+        <div className={"allcard" + (picked.length ? " ready" : "")}>
+          {picked.length > 0 ? (
+            <div>
+              <h3>{pickedCount} question{pickedCount === 1 ? "" : "s"} selected</h3>
+              <p>
+                From {picked.length} topic{picked.length === 1 ? "" : "s"}: {picked.slice().sort((a, b) => parseFloat(a) - parseFloat(b)).join(", ")}
+                <button className="linkish" onClick={() => setPicked([])}>Clear</button>
+              </p>
+            </div>
+          ) : (
+            <div>
+              <h3>Choose what to practise</h3>
+              <p>{total ? "Tick one or more topics below, or open a single topic on its own." : "No questions here yet."}</p>
+            </div>
+          )}
+          <div className="allact">
+            <button className="btn acc" disabled={!pickedCount}
+              onClick={startPicked}>
+              Start practice
+            </button>
+            {!picked.length && <span className="hint">Tick a topic to begin</span>}
+          </div>
+        </div>
+
+        {picked.length > 0 && (
+          <div className="pickbar">
+            <span><b className="num">{pickedCount}</b> questions · {picked.length} topic{picked.length === 1 ? "" : "s"}</span>
+            <span style={{ flex: 1 }} />
+            <button className="btn ghost sm" onClick={() => setPicked([])}>Clear</button>
+            <button className="btn acc sm" onClick={startPicked}>Start practice</button>
+          </div>
+        )}
+
+        {UNITS[subject].map((u) => {
+          const rows = TOPICS[subject][u.n] || [];
+          const unitTotal = rows.reduce((n, [code]) => n + forTopic(code).length, 0);
+          return (
+            <div className="ugroup" key={u.n}>
+              <div className="ugtitle">
+                <h3>Unit {u.n}. {u.title}</h3>
+                <span className="num">{unitTotal} question{unitTotal === 1 ? "" : "s"} · {u.weight}% of the exam</span>
+              </div>
+              <div className="btable">
+                <div className="bhead"><span /><span>Topic</span><span>Progress</span><span style={{ textAlign: "right" }}>Accuracy</span></div>
+                {rows.map(([code, title]) => {
+                  const n = forTopic(code).length;
+                  const st = seen[`${subject}-${code}`];
+                  const acc = st ? pct(st.c, st.a) : null;
+                  const done = st ? Math.min(st.a, n) : 0;
+                  return (
+                    <div className={"brow" + (n ? "" : " none")} key={code}>
+                      <input type="checkbox" className="cbx" disabled={!n} checked={picked.includes(code)}
+                        onChange={() => toggle(code)} aria-label={`Select topic ${code}`} />
+                      <button className="tp" style={{ background: "none", border: 0, padding: 0 }}
+                        disabled={!n} onClick={() => start(forTopic(code), [code], `AP ${SNAME[subject]} · ${code} ${title}`)}>
+                        <span className="tc">{code}</span>
+                        <span className="tt">{title}</span>
+                      </button>
+                      <span className="prog">
+                        <span className="bar"><i style={{ width: n ? `${(done / n) * 100}%` : "0%" }} /></span>
+                        <span className="n">{n ? `${done}/${n}` : "—"}</span>
+                      </span>
+                      <span className="acc2" style={{ color: acc === null ? "var(--tx3)" : "var(--tx)" }}>
+                        {acc !== null && <span className="pip" style={{ background: acc >= 80 ? "var(--ok)" : acc >= 55 ? "var(--micro)" : "var(--no)" }} />}
+                        {acc === null ? "—" : acc + "%"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {picked.length > 0 && (
+          <div className="selbar">
+            <span style={{ fontSize: 14 }}>
+              <b className="num">{picked.length}</b> topic{picked.length === 1 ? "" : "s"} selected ·{" "}
+              <b className="num">{pickedCount}</b> question{pickedCount === 1 ? "" : "s"}
+            </span>
+            <span style={{ display: "flex", gap: 10 }}>
+              <button className="btn ghost sm" onClick={() => setPicked([])}>Clear</button>
+              <button className="btn acc sm" disabled={!pickedCount} onClick={startPicked}>Start practice</button>
+            </span>
+          </div>
+        )}
+        <div style={{ height: 40 }} />
+      </div>
     </>
   );
 }
 
 /* ---------------------------- practice ---------------------------- */
 
-function Practice({ subject, unit, pool, go, onFinish }) {
+function Practice({ subject, unit, pool, go, onFinish, nav }) {
   const [idx, setIdx] = useState(0);
-  const [picked, setPicked] = useState(null);
-  const [items, setItems] = useState([]);
+  /* Every question keeps its own state, so Previous shows what you did. */
+  const [ans, setAns] = useState({});          // id -> { picked, checked }
   const [secs, setSecs] = useState(0);
-  const [help, setHelp] = useState(null);
+  const [paused, setPaused] = useState(false);
+  const [grid, setGrid] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [help, setHelp] = useState({});        // id -> tutor text
   const [helping, setHelping] = useState(false);
+  const [savedIds, setSavedIds] = useLocal("equilibrium:saved", []);
+  const credits = useCredits();
+  const doneRef = useRef(false);
+
   const q = pool[idx];
+  const cur = ans[q.id] || {};
+  const picked = cur.picked ?? null;
+  const revealed = Boolean(cur.checked);
+  const last = idx + 1 >= pool.length;
+  const checkedCount = Object.values(ans).filter((a) => a.checked).length;
 
-  useEffect(() => { const t = setInterval(() => setSecs((s) => s + 1), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => setSecs((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [paused]);
 
-  const submit = useCallback((c) => {
-    if (picked !== null || !q) return;
-    setPicked(c);
-    setItems((p) => [...p, { id: q.id, picked: c, correct: c === q.answer, q }]);
-  }, [picked, q]);
+  const pick = useCallback((i) => {
+    if (revealed) return;
+    setAns((p) => ({ ...p, [q.id]: { picked: i, checked: false } }));
+  }, [q.id, revealed]);
 
-  const next = useCallback(() => {
-    if (idx + 1 >= pool.length) { onFinish({ subject, unit, items, secs }); go({ v: "results", subject, unit, items, secs }); }
-    else { setIdx((i) => i + 1); setPicked(null); setHelp(null); }
-  }, [idx, pool.length, items, secs, subject, unit, onFinish, go]);
+  const check = useCallback(() => {
+    if (picked === null || revealed) return;
+    setAns((p) => ({ ...p, [q.id]: { picked, checked: true } }));
+  }, [q.id, picked, revealed]);
+
+  /* Every question in the set goes to the results: answered ones are marked
+     whether or not Check was pressed, and untouched ones count as skipped. */
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    const items = pool.map((x, i) => {
+      const picked = ans[x.id]?.picked ?? null;
+      return { id: x.id, n: i + 1, picked, correct: picked !== null && picked === x.answer, q: x };
+    });
+    const answered = items.filter((it) => it.picked !== null);
+    if (answered.length) onFinish({ subject, unit, items: answered, secs });
+    go({ v: "results", subject, unit, items, secs });
+  }, [pool, ans, secs, subject, unit, onFinish, go]);
+
+  const next = useCallback(() => { if (last) setConfirm(true); else setIdx((i) => i + 1); }, [last]);
+  const prev = useCallback(() => setIdx((i) => Math.max(0, i - 1)), []);
 
   useEffect(() => {
     const h = (e) => {
+      if (grid || confirm) return;
       if (e.target && ["TEXTAREA", "INPUT"].includes(e.target.tagName)) return;
-      if (picked === null && q) {
-        const i = ["1", "2", "3", "4", "5", "6"].indexOf(e.key);
-        if (i >= 0 && i < q.choices.length) { e.preventDefault(); return submit(i); }
+      if (!revealed) {
         const li = L.indexOf(e.key.toUpperCase());
-        if (li >= 0 && li < q.choices.length) { e.preventDefault(); return submit(li); }
+        const ni = ["1", "2", "3", "4", "5", "6"].indexOf(e.key);
+        const k = li >= 0 && li < q.choices.length ? li : ni >= 0 && ni < q.choices.length ? ni : -1;
+        if (k >= 0) { e.preventDefault(); return pick(k); }
       }
-      if (picked !== null && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); next(); }
+      if (e.key === "Enter") { e.preventDefault(); revealed ? next() : check(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); next(); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [picked, q, submit, next]);
+  }, [q, revealed, pick, check, next, prev, grid, confirm]);
 
   const askDeeper = async () => {
+    if (credits.left === 0) return;
     setHelping(true);
+    credits.spend();
     try {
-      setHelp(await askClaude(
+      const txt = await askClaude(
         [{ role: "user", content: `AP ${SNAME[subject]} question:\n\n${q.stem}\n\n${q.choices.map((c, i) => `${L[i]}. ${c}`).join("\n")}\n\nCorrect answer: ${L[q.answer]}\nI chose ${L[picked]}.\n\nExplain this a different way from a standard answer key. Use the relevant graph and walk through what shifts and why. Under 160 words.` }],
-        "You are an AP Economics tutor. Be precise with terminology, reference the exact graph and curves involved, and never pad. Plain text, no markdown.", 600));
-    } catch { setHelp("The tutor could not be reached. Try again in a moment."); }
+        "You are an AP Economics tutor. Be precise with terminology, reference the exact graph and curves involved, and never pad. Plain text, no markdown.", 600);
+      setHelp((p) => ({ ...p, [q.id]: txt }));
+    } catch { setHelp((p) => ({ ...p, [q.id]: "The tutor could not be reached. Try again in a moment." })); }
     setHelping(false);
   };
 
-  const label = unit === 0 ? "Mixed set" : `Unit ${unit} · ${UNITS[subject][unit - 1].title}`;
+  const label = q.topic ? `${q.topic} ${topicTitle(subject, q.topic)}` : unit === 0 ? "Mixed set" : `Unit ${unit}`;
+  const cellClass = (x, i) => {
+    const a = ans[x.id];
+    let c = "gcell";
+    if (a?.checked) c += a.picked === x.answer ? " ok" : " no";
+    else if (a?.picked !== undefined && a?.picked !== null) c += " done";
+    if (i === idx) c += " now";
+    if (savedIds.includes(x.id)) c += " fl";
+    return c;
+  };
 
   return (
     <>
-      <div className="pbar"><div className="wrap pbin">
-        <Mark size={22} />
-        <div className="segs">{pool.map((_, i) => {
-          const r = items[i];
-          return <div key={i} className={"seg " + (r ? (r.correct ? "ok" : "no") : i === idx ? "now" : "")} />;
-        })}</div>
-        <div className="clock">{mmss(secs)}</div>
-        <button className="mini" onClick={() => go({ v: "course", subject })}>End set</button>
-      </div></div>
-
-      <div className="qwrap">
-        <div className="qtag"><span>{label}</span><span className="dv" /><span className="num">{idx + 1} / {pool.length}</span><span className="dv" /><span>{q.difficulty}</span></div>
-        <p className="qstem">{q.stem}</p>
-        <div className="opts">
-          {q.choices.map((c, i) => {
-            let cls = "opt";
-            if (picked !== null) { if (i === q.answer) cls += " good"; else if (i === picked) cls += " bad"; }
-            return <button key={i} className={cls} disabled={picked !== null} onClick={() => submit(i)}>
-              <span className="k">{L[i]}</span><span>{c}</span></button>;
-          })}
+      <div className="wrap" style={{ maxWidth: 860 }}>
+        <div className="crumb" style={{ justifyContent: "space-between" }}>
+          <span style={{ display: "flex", gap: 9, alignItems: "center" }}>
+            <button onClick={() => go({ v: "bank", subject })}>Question bank</button>
+            <span>/</span><span>{label}</span>
+          </span>
+          <button className="mini" onClick={() => setConfirm(true)}>End set</button>
         </div>
-        {picked !== null && (
+
+        <Timer seconds={secs} paused={paused} onToggle={() => setPaused((v) => !v)} />
+
+        <QuestionView q={q} index={idx} total={pool.length} picked={picked} revealed={revealed}
+          onPick={pick} saved={savedIds.includes(q.id)}
+          onToggleSave={() => setSavedIds((p) => (p.includes(q.id) ? p.filter((x) => x !== q.id) : [...p, q.id]))} />
+
+        {revealed && (
           <div className="fb">
-            <div className={"v " + (picked === q.answer ? "y" : "n")}>{picked === q.answer ? "Correct" : `Not quite — the answer is ${L[q.answer]}`}</div>
+            <div className={"v " + (picked === q.answer ? "y" : "n")}>
+              {picked === q.answer ? "Correct" : `Not quite — the answer is ${L[q.answer]}`}
+            </div>
             <p>{q.explanation}</p>
-            {help && <p style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>{help}</p>}
-            {!help && <button className="mini" style={{ marginTop: 14 }} onClick={askDeeper} disabled={helping}>
-              {helping ? <><span className="spin" /> Thinking</> : "Explain it another way"}</button>}
+            {help[q.id] && <p style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>{help[q.id]}</p>}
+            {!help[q.id] && (
+              credits.plan === "free" ? (
+                <button className="mini eqbtn" style={{ marginTop: 14 }} onClick={() => go({ v: "pricing" })}>
+                  Explain with Equity <span className="eqleft lock">Pro</span>
+                </button>
+              ) : (
+                <button className="mini eqbtn" style={{ marginTop: 14 }} onClick={askDeeper}
+                  disabled={helping || credits.left === 0}>
+                  {helping ? <><span className="spin" /> Equity is thinking</> : "Explain with Equity"}
+                  <span className={"eqleft" + (credits.left === 0 ? " lock" : "")}>
+                    {credits.left === 0 ? "none left today" : `${credits.left} left today`}
+                  </span>
+                </button>
+              )
+            )}
           </div>
         )}
-        <div className="actions">
-          <button className="btn" onClick={next} disabled={picked === null}>{idx + 1 >= pool.length ? "See results" : "Next question"}</button>
-          <span className="hint">{picked === null ? "Press A–E or 1–5 to answer" : "Press Enter to continue"}</span>
+        <div style={{ height: 96 }} />
+      </div>
+
+      <div className="pfoot">
+        <div className="pfin">
+          <button className="qcount" onClick={() => setGrid(true)} aria-label="Open the question map">
+            <span className="num">{idx + 1}</span> of <span className="num">{pool.length}</span>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8"
+              strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
+          </button>
+          <span style={{ flex: 1 }} />
+          <button className="btn ghost sm" onClick={prev} disabled={idx === 0}>Previous</button>
+          <button className="btn sm" onClick={check} disabled={picked === null || revealed}>Check</button>
+          <button className="btn acc sm" onClick={next}>{last ? "Finish" : "Next"}</button>
         </div>
       </div>
+
+      {confirm && (() => {
+        const done = pool.filter((x) => ans[x.id]?.picked !== undefined && ans[x.id]?.picked !== null).length;
+        const open = pool.length - done;
+        return (
+          <div className="sheet" onClick={() => setConfirm(false)}>
+            <div className="sheetin" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+              <h2 style={{ fontSize: 22, marginBottom: 10 }}>Finish this set?</h2>
+              <p style={{ color: "var(--tx2)", fontSize: 14.5, marginTop: 0 }}>
+                {open === 0
+                  ? "Every question is answered. You will see your results and every explanation next."
+                  : `${open} question${open === 1 ? " is" : "s are"} still unanswered. ${open === 1 ? "It" : "They"} will show as skipped in your results, with the correct answer and explanation.`}
+              </p>
+              <div className="actions">
+                <button className="btn submit" onClick={finish}>Finish</button>
+                <button className="btn ghost" onClick={() => setConfirm(false)}>Keep working</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {grid && (
+        <div className="sheet" onClick={() => setGrid(false)}>
+          <div className="qmap" onClick={(e) => e.stopPropagation()}>
+            <div className="qmhead">
+              <h2>Question map</h2>
+              <button className="qmx" onClick={() => setGrid(false)} aria-label="Close">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round"><path d="M2 2l10 10M12 2 2 12" /></svg>
+              </button>
+            </div>
+            <div className="qmlegend">
+              <span><StatusIcon kind="ok" />Correct</span>
+              <span><StatusIcon kind="no" />Incorrect</span>
+              <span><StatusIcon kind="pend" />Answered, not checked</span>
+              <span><StatusIcon kind="rev" />For review</span>
+            </div>
+            <div className="qmgrid">
+              {pool.map((x, i) => {
+                const a = ans[x.id];
+                const st = a?.checked ? (a.picked === x.answer ? "ok" : "no")
+                  : a?.picked !== undefined && a?.picked !== null ? "pend" : "";
+                return (
+                  <button key={x.id} className={"qmcell " + st + (i === idx ? " now" : "")}
+                    onClick={() => { setIdx(i); setGrid(false); }} aria-label={`Question ${i + 1}`}>
+                    {i + 1}
+                    {savedIds.includes(x.id)
+                      ? <span className="qmbadge"><StatusIcon kind="rev" size={16} /></span>
+                      : st && <span className="qmbadge"><StatusIcon kind={st} size={16} /></span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+/* ---------------------------- question review ----------------------------
+   Every question in full: stem, figure, all choices marked, explanation.
+--------------------------------------------------------------------------- */
+
+function ReviewList({ items, defaultOpen = false }) {
+  return (
+    <div className="rv">
+      {items.map((it, i) => {
+        const blank = it.picked === null || it.picked === undefined;
+        return (
+          <details key={i} className="rvi" open={defaultOpen}>
+            <summary>
+              <span className="rvn num">{it.n ?? i + 1}</span>
+              <span className="rvs">{it.q.stem}</span>
+              <span className="rvst">
+                {blank ? <span className="rvblank" title="Skipped" /> : <StatusIcon kind={it.correct ? "ok" : "no"} />}
+              </span>
+            </summary>
+            <div className="rvbody">
+              {it.q.image && (
+                <a className="qfig" href={it.q.image} target="_blank" rel="noreferrer">
+                  <img src={it.q.image} alt="Figure for this question" loading="lazy" />
+                </a>
+              )}
+              {it.q.choices.map((c, j) => {
+                const good = j === it.q.answer, bad = !good && j === it.picked;
+                return (
+                  <div key={j} className={"rvopt" + (good ? " good" : bad ? " bad" : "")}>
+                    <span className="rvc">{L[j]}</span>
+                    <span>{c}</span>
+                    {good && <span className="rvtag">Correct answer</span>}
+                    {bad && <span className="rvtag">Your answer</span>}
+                  </div>
+                );
+              })}
+              {blank && <div className="hint" style={{ margin: "4px 0 10px" }}>You skipped this question.</div>}
+              <div className="rvexp">{it.q.explanation}</div>
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------------------------- pricing ---------------------------- */
+
+function Pricing({ nav }) {
+  const { go } = nav;
+  const { plan, setPlan } = useCredits();
+  const [cycle, setCycle] = useState("monthly");
+  const yearly = cycle === "yearly";
+
+  const rows = [
+    ["Question bank", "20 questions a day", "Everything, unlimited", "Everything, unlimited"],
+    ["Full-length tests", "1 test", "Unlimited", "Unlimited"],
+    ["Saved and mistakes", "20 questions", "Unlimited", "Unlimited"],
+    ["Analytics", "Last 7 days", "Full history", "Full history"],
+    ["Study planner", "—", "Yes", "Yes"],
+    ["Equity AI tutor", "—", "12 credits a day", "30 credits a day"],
+    ["Explain with Equity", "—", "Included", "Included"],
+    ["Deep explanations", "—", "—", "Included"],
+  ];
+  const tiers = [
+    { k: "free", tag: "", blurb: "The whole question bank, a day at a time." },
+    { k: "pro", tag: "Most Popular", blurb: "Unlimited practice and Equity every day." },
+    { k: "max", tag: "", blurb: "For the months right before the exam." },
+  ];
+
+  return (
+    <div className="wrap" style={{ maxWidth: 1040 }}>
+      <div className="phead" style={{ paddingTop: 30, display: "block", textAlign: "center" }}>
+        <h1>Plans</h1>
+        <div className="sub" style={{ maxWidth: 520, margin: "10px auto 0" }}>
+          Everything on this site was built for two exams. Pick how much of it you want open.
+        </div>
+        <div className="cycle">
+          <button className={cycle === "monthly" ? "on" : ""} onClick={() => setCycle("monthly")}>Monthly</button>
+          <button className={cycle === "yearly" ? "on" : ""} onClick={() => setCycle("yearly")}>
+            Yearly <span className="save">2 months free</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="plans">
+        {tiers.map(({ k, tag, blurb }) => {
+          const pl = PLANS[k];
+          const price = yearly ? pl.yearly : pl.monthly;
+          return (
+            <div key={k} className={"plan" + (k === "pro" ? " popular" : "") + (plan === k ? " current" : "")}>
+              {tag && <span className="ptag">{tag}</span>}
+              <h3>{pl.name}</h3>
+              <div className="pprice">
+                <b>${price}</b><span>{price === 0 ? "" : yearly ? "/year" : "/month"}</span>
+              </div>
+              <p className="pblurb">{blurb}</p>
+              <button className={"btn" + (k === "pro" ? " acc" : " ghost")} disabled={plan === k}
+                onClick={() => { setPlan(k); go({ v: "home" }); }}>
+                {plan === k ? "Your plan" : k === "free" ? "Switch to Free" : `Choose ${pl.name}`}
+              </button>
+              <ul className="plist">
+                {rows.map(([label, f, pr, mx]) => {
+                  const val = k === "free" ? f : k === "pro" ? pr : mx;
+                  return (
+                    <li key={label} className={val === "—" ? "off" : ""}>
+                      <span className="pmark">{val === "—" ? "·" : "✓"}</span>
+                      <span>{label}{val === "—" || val === "Yes" || val === "Included" ? "" : ` — ${val}`}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="hint" style={{ textAlign: "center", marginTop: 26, maxWidth: 560, marginInline: "auto" }}>
+        One Equity credit is one answer from the tutor. Credits reset every morning and do not roll over.
+        Payment is by card transfer and your plan opens once it is confirmed.
+      </p>
+      <div style={{ height: 60 }} />
+    </div>
   );
 }
 
@@ -1068,75 +2758,337 @@ function Practice({ subject, unit, pool, go, onFinish }) {
 
 function Results({ subject, unit, items, secs, nav }) {
   const { go } = nav;
-  const correct = items.filter((i) => i.correct).length;
-  const p = pct(correct, items.length) ?? 0;
-  const verdict = p >= 85 ? "Strong. Move to a heavier unit." : p >= 60 ? "Close. Redo the ones you missed today, not next week." : "Read every explanation below before trying this unit again.";
+  const [show, setShow] = useState("all");
+  const [openAll, setOpenAll] = useState(true);
+  const answered = items.filter((i) => i.picked !== null && i.picked !== undefined);
+  const right = answered.filter((i) => i.correct);
+  const wrong = answered.filter((i) => !i.correct);
+  const skipped = items.filter((i) => i.picked === null || i.picked === undefined);
+  const p = pct(right.length, answered.length);
+  const verdict = !answered.length ? "You did not answer any questions in this set."
+    : p >= 85 ? "Strong. Move to a heavier unit."
+      : p >= 60 ? "Close. Redo the ones you missed today, not next week."
+        : "Read every explanation below before trying these topics again.";
+  const list = show === "wrong" ? wrong : show === "skipped" ? skipped : show === "right" ? right : items;
+
   return (
-    <>
-      <Nav nav={nav} active={subject} />
-      <div className="wrap">
-        <div className="crumb">
-          <button onClick={() => go({ v: "home" })}>Equilibrium</button><span>/</span>
-          <button onClick={() => go({ v: "course", subject })}>AP {SNAME[subject]}</button><span>/</span>
-          <span>{unit === 0 ? "Mixed set" : `Unit ${unit}`}</span>
+    <div className="wrap">
+      <div className="crumb">
+        <button onClick={() => go({ v: "bank", subject })}>Question bank</button><span>/</span>
+        <span>Results</span>
+      </div>
+      <div className="score">
+        <div className="n">{p === null ? "—" : p + "%"}</div>
+        <div className="side">
+          <b>{right.length} of {answered.length} answered correctly</b>
+          {mmss(secs)} total{answered.length ? ` · ${Math.round(secs / answered.length)}s per question` : ""}
         </div>
-        <div className="score">
-          <div className="n">{p}%</div>
-          <div className="side"><b>{correct} of {items.length} correct</b>{mmss(secs)} total · {items.length ? Math.round(secs / items.length) : 0}s per question</div>
-          <div className="side" style={{ marginLeft: "auto", maxWidth: 250, color: "var(--tx2)" }}>{verdict}</div>
+        <div className="side" style={{ marginLeft: "auto", maxWidth: 270, color: "var(--tx2)" }}>{verdict}</div>
+      </div>
+
+      <div className="tally">
+        <div><StatusIcon kind="ok" /><b className="num">{right.length}</b><span>correct</span></div>
+        <div><StatusIcon kind="no" /><b className="num">{wrong.length}</b><span>incorrect</span></div>
+        <div><span className="rvblank" /><b className="num">{skipped.length}</b><span>skipped</span></div>
+      </div>
+
+      <div className="filters" style={{ marginTop: 26, marginBottom: 0 }}>
+        {[["all", `All (${items.length})`], ["wrong", `Incorrect (${wrong.length})`],
+          ["skipped", `Skipped (${skipped.length})`], ["right", `Correct (${right.length})`]].map(([k, v]) => (
+          <button key={k} className={"fbtn" + (show === k ? " on" : "")} onClick={() => setShow(k)}>{v}</button>
+        ))}
+      </div>
+
+      {list.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+          <button className="mini" onClick={() => setOpenAll((v) => !v)}>{openAll ? "Collapse all" : "Expand all"}</button>
         </div>
-        <div className="rev">
-          {items.map((it, i) => (
-            <details key={i} className="ritem">
-              <summary>
-                <span className="num" style={{ color: "var(--tx3)", fontSize: 13 }}>{String(i + 1).padStart(2, "0")}</span>
-                <span>{it.q.stem.length > 96 ? it.q.stem.slice(0, 96) + "…" : it.q.stem}</span>
-                <span className={"dot " + (it.correct ? "y" : "n")} />
-              </summary>
-              <div className="rbody">
-                <div className="ln"><b>Correct:</b> {L[it.q.answer]}. {it.q.choices[it.q.answer]}</div>
-                {!it.correct && <div className="ln"><b>You chose:</b> {L[it.picked]}. {it.q.choices[it.picked]}</div>}
-                <div className="ln" style={{ marginTop: 12 }}>{it.q.explanation}</div>
-              </div>
-            </details>
-          ))}
-        </div>
-        <div className="actions" style={{ paddingBottom: 50 }}>
-          <button className="btn acc" onClick={() => go({ v: "course", subject })}>Back to units</button>
-          <button className="btn ghost" onClick={() => go({ v: "tutor" })}>Ask the tutor about a question</button>
+      )}
+      {list.length === 0
+        ? <div className="empty" style={{ marginTop: 18 }}>Nothing in this group.</div>
+        : <ReviewList key={show + String(openAll)} items={list} defaultOpen={openAll} />}
+
+      <div className="actions" style={{ paddingBottom: 50 }}>
+        {wrong.length + skipped.length > 0 && (
+          <button className="btn acc" onClick={() => go({ v: "practice", subject, unit: 0, pool: shuffle([...wrong, ...skipped].map((i) => i.q)) })}>
+            Redo the {wrong.length + skipped.length} I missed or skipped
+          </button>
+        )}
+        <button className="btn ghost" onClick={() => go({ v: "bank", subject })}>Back to the question bank</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------- saved and mistakes ---------------------------- */
+
+function Saved({ bank, me, nav }) {
+  const { go } = nav;
+  const [savedIds] = useLocal("equilibrium:saved", []);
+  const [notes] = useLocal("equilibrium:notes", {});
+  const [tab, setTab] = useState("saved");
+  const missed = me.missed || [];
+  const list = tab === "saved"
+    ? bank.questions.filter((q) => savedIds.includes(q.id))
+    : bank.questions.filter((q) => missed.includes(q.id));
+  const start = () => { if (list.length) go({ v: "practice", subject: list[0].subject, unit: 0, pool: shuffle(list) }); };
+
+  return (
+    <div className="wrap">
+      <div className="phead" style={{ paddingTop: 30 }}>
+        <div>
+          <h1>Saved and mistakes</h1>
+          <div className="sub">Questions you marked for review, and every question you have got wrong and not yet fixed. Open any one on its own, or practise the whole list.</div>
         </div>
       </div>
-      <Foot />
-    </>
+      <div className="filters">
+        <button className={"fbtn" + (tab === "saved" ? " on" : "")} onClick={() => setTab("saved")}>Marked for review ({savedIds.length})</button>
+        <button className={"fbtn" + (tab === "missed" ? " on" : "")} onClick={() => setTab("missed")}>Still getting wrong ({missed.length})</button>
+      </div>
+      {list.length === 0 ? (
+        <div className="empty">
+          <h3>Nothing here yet</h3>
+          {tab === "saved" ? "Use the bookmark on any question to keep it for later." : "Questions you answer incorrectly land here, and leave once you get them right."}
+        </div>
+      ) : (
+        <>
+          <div className="actions" style={{ marginTop: 0, marginBottom: 20 }}>
+            <button className="btn acc" onClick={start}>Practise these {list.length}</button>
+          </div>
+          <div className="qlist">
+            {list.map((q) => (
+              <button key={q.id} className="qitem qopen"
+                onClick={() => go({ v: "practice", subject: q.subject, unit: 0, pool: [q] })}>
+                <span className="pill">{q.topic || (q.subject === "micro" ? "MI" : "MA") + "·" + q.unit}</span>
+                <span>
+                  <span className="clamp2">{q.stem}</span>
+                  {notes[q.id] && <span className="hint" style={{ display: "block", marginTop: 4 }}>Note: {notes[q.id]}</span>}
+                </span>
+                <span className="st">{SSHORT[q.subject]} · Open</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <div style={{ height: 50 }} />
+    </div>
+  );
+}
+
+/* ---------------------------- analytics ---------------------------- */
+
+function Analytics({ me }) {
+  const rows = (subject) => UNITS[subject].flatMap((u) =>
+    (TOPICS[subject][u.n] || []).map(([code, title]) => {
+      const st = (me.topic || {})[`${subject}-${code}`];
+      return { code, title, a: st?.a || 0, p: st ? pct(st.c, st.a) : null };
+    })).filter((r) => r.a > 0);
+  const overall = (subject) => {
+    let a = 0, c = 0;
+    Object.entries(me.unit || {}).forEach(([k, v]) => { if (k.startsWith(subject + "-")) { a += v.a; c += v.c; } });
+    return { a, p: pct(c, a) };
+  };
+
+  return (
+    <div className="wrap">
+      <div className="phead" style={{ paddingTop: 30 }}>
+        <div>
+          <h1>Analytics</h1>
+          <div className="sub">Your accuracy on every topic you have practised, weakest first.</div>
+        </div>
+      </div>
+      {["micro", "macro"].map((sub) => {
+        const list = rows(sub).sort((x, y) => x.p - y.p);
+        const o = overall(sub);
+        return (
+          <div key={sub} style={{ marginBottom: 34, "--accent": sub === "micro" ? "var(--micro)" : "var(--macro)" }}>
+            <div className="ugtitle">
+              <h3>AP {SNAME[sub]}</h3>
+              <span className="num">{o.a ? `${o.p}% across ${o.a} questions` : "nothing yet"}</span>
+            </div>
+            {list.length === 0
+              ? <div className="empty" style={{ padding: 26 }}>Practise a topic and it will show up here.</div>
+              : <div className="btable">
+                {list.map((r) => (
+                  <div className="brow" key={r.code} style={{ gridTemplateColumns: "1fr 150px 74px" }}>
+                    <span className="tp"><span className="tc">{r.code}</span><span className="tt">{r.title}</span></span>
+                    <span className="prog"><span className="bar"><i style={{ width: `${r.p}%` }} /></span><span className="n">{r.a}</span></span>
+                    <span className="acc2">
+                      <span className="pip" style={{ background: r.p >= 80 ? "var(--ok)" : r.p >= 55 ? "var(--micro)" : "var(--no)" }} />{r.p}%
+                    </span>
+                  </div>
+                ))}
+              </div>}
+          </div>
+        );
+      })}
+      <div style={{ height: 50 }} />
+    </div>
+  );
+}
+
+/* ---------------------------- study planner ---------------------------- */
+
+function Planner({ bank, me, nav }) {
+  const { go } = nav;
+  /* Rank by what the exam rewards: heavy units you are weak or untested on. */
+  const plan = (subject) => UNITS[subject].flatMap((u) =>
+    (TOPICS[subject][u.n] || []).map(([code, title]) => {
+      const st = (me.topic || {})[`${subject}-${code}`];
+      const have = bank.questions.filter((q) => q.subject === subject && q.topic === code).length;
+      const p = st ? pct(st.c, st.a) : null;
+      return { code, title, weight: u.weight, have, p, score: u.weight * (p === null ? 1 : (100 - p) / 100 + 0.15) };
+    })).filter((r) => r.have > 0).sort((x, y) => y.score - x.score).slice(0, 6);
+
+  return (
+    <div className="wrap">
+      <div className="phead" style={{ paddingTop: 30 }}>
+        <div>
+          <h1>Study planner</h1>
+          <div className="sub">What to work on next, ranked by how much each topic is worth on the exam against how you are doing on it.</div>
+        </div>
+      </div>
+      {["micro", "macro"].map((sub) => {
+        const list = plan(sub);
+        return (
+          <div key={sub} style={{ marginBottom: 34, "--accent": sub === "micro" ? "var(--micro)" : "var(--macro)" }}>
+            <div className="ugtitle"><h3>AP {SNAME[sub]}</h3></div>
+            {list.length === 0
+              ? <div className="empty" style={{ padding: 26 }}>No questions in this course yet.</div>
+              : <div className="btable">
+                {list.map((r, i) => (
+                  <button className="brow" key={r.code} style={{ gridTemplateColumns: "26px 1fr 190px 60px" }}
+                    onClick={() => go({ v: "practice", subject: sub, unit: 0, pool: shuffle(bank.questions.filter((q) => q.subject === sub && q.topic === r.code)) })}>
+                    <span className="num" style={{ color: "var(--tx3)", fontSize: 12.5 }}>{i + 1}</span>
+                    <span className="tp"><span className="tc">{r.code}</span><span className="tt">{r.title}</span></span>
+                    <span className="hint">{r.p === null ? "not started" : `${r.p}% so far`} · unit worth {r.weight}%</span>
+                    <span className="acc2" style={{ color: "var(--accent)" }}>{r.have} q</span>
+                  </button>
+                ))}
+              </div>}
+          </div>
+        );
+      })}
+      <div style={{ height: 50 }} />
+    </div>
+  );
+}
+
+/* ---------------------------- full-length test picker ---------------------------- */
+
+function Tests({ bank, nav }) {
+  const { go } = nav;
+  const [, force] = useState(0);
+  const startTest = (subject) => {
+    clearSavedTest(subject);
+    const p = buildMock(bank.questions, subject);
+    if (p.length >= 5) go({ v: "mock", subject, pool: p });
+  };
+  const resumeTest = (subject, saved) => {
+    const byId = new Map(bank.questions.map((q) => [q.id, q]));
+    const pool = saved.ids.map((id) => byId.get(id)).filter(Boolean);
+    if (pool.length < 5) { clearSavedTest(subject); force((n) => n + 1); return; }
+    go({ v: "mock", subject, pool, resume: { ans: saved.ans || {}, left: saved.left, idx: Math.min(saved.idx || 0, pool.length - 1) } });
+  };
+  return (
+    <div className="wrap">
+      <div className="phead" style={{ paddingTop: 30 }}>
+        <div>
+          <h1>Full-length test</h1>
+          <div className="sub">A timed multiple-choice paper drawn in College Board unit proportions, then a score report with a predicted 1 to 5.</div>
+        </div>
+      </div>
+      {["micro", "macro"].map((sub) => {
+        const n = Math.min(60, bank.questions.filter((q) => q.subject === sub).length);
+        return (
+          <div className="mockcard" key={sub} style={{ "--accent": sub === "micro" ? "var(--micro)" : "var(--macro)" }}>
+            <div>
+              <span className="mk">AP {SSHORT[sub]}</span>
+              <h3>{SNAME[sub]}</h3>
+              <p>Weighted across all six units, roughly a quarter easy, half medium, a quarter hard.</p>
+              <div className="ml">
+                <div><b className="num">{n}</b><span>questions</span></div>
+                <div><b className="num">{Math.round(Math.min(4200, n * 70) / 60)}</b><span>minutes</span></div>
+                <div><b className="num">70s</b><span>per question</span></div>
+              </div>
+            </div>
+            {(() => {
+              const saved = loadSavedTest(sub);
+              if (saved && saved.ids?.length) {
+                const done = Object.keys(saved.ans || {}).length;
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+                    <button className="btn acc" onClick={() => resumeTest(sub, saved)}>Resume the test</button>
+                    <span className="hint">{done} of {saved.ids.length} answered · {mmss(saved.left || 0)} left</span>
+                    <button className="mini" onClick={() => { if (window.confirm("Discard the saved test and start a new one?")) startTest(sub); }}>
+                      Start a new test instead
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <button className="btn" onClick={() => startTest(sub)} disabled={n < 5}>
+                  {n < 5 ? "Needs at least 5 questions" : "Start the test"}
+                </button>
+              );
+            })()}
+          </div>
+        );
+      })}
+      <div style={{ height: 50 }} />
+    </div>
   );
 }
 
 /* ---------------------------- mock exam ---------------------------- */
 
-function Mock({ subject, pool, go, onFinish }) {
-  const [idx, setIdx] = useState(0);
-  const [ans, setAns] = useState({});
-  const [flag, setFlag] = useState({});
-  const [left, setLeft] = useState(Math.min(4200, pool.length * 70));
+const testKey = (subject) => `equilibrium:test:${subject}`;
+const loadSavedTest = (subject) => {
+  try { return JSON.parse(localStorage.getItem(testKey(subject))); } catch { return null; }
+};
+const clearSavedTest = (subject) => { try { localStorage.removeItem(testKey(subject)); } catch { /* ignore */ } };
+
+function Mock({ subject, pool, go, onFinish, nav, resume }) {
+  const [idx, setIdx] = useState(resume?.idx ?? 0);
+  const [ans, setAns] = useState(resume?.ans ?? {});
+  const [left, setLeft] = useState(resume?.left ?? Math.min(4200, pool.length * 70));
   const [grid, setGrid] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [savedIds, setSavedIds] = useLocal("equilibrium:saved", []);
   const doneRef = useRef(false);
   const q = pool[idx];
   const answered = Object.keys(ans).length;
+  const last = idx + 1 >= pool.length;
 
   const finish = useCallback(() => {
     if (doneRef.current) return;
     doneRef.current = true;
     const items = pool.map((x) => ({ id: x.id, picked: ans[x.id] ?? null, correct: ans[x.id] === x.answer, q: x }));
     const secs = Math.min(4200, pool.length * 70) - left;
-    onFinish({ subject, unit: 0, mode: "mock", items: items.filter((i) => i.picked !== null), secs });
+    clearSavedTest(subject);
+    onFinish({ subject, unit: 0, mode: "test", items: items.filter((i) => i.picked !== null), secs });
     go({ v: "mockresult", subject, items, secs });
   }, [pool, ans, left, subject, onFinish, go]);
 
+  /* Keep a copy on the device the whole time, so closing the tab loses nothing. */
   useEffect(() => {
-    const t = setInterval(() => setLeft((s) => { if (s <= 1) { clearInterval(t); finish(); return 0; } return s - 1; }), 1000);
+    if (doneRef.current) return;
+    try {
+      localStorage.setItem(testKey(subject), JSON.stringify({
+        ids: pool.map((x) => x.id), ans, left, idx, savedAt: Date.now(),
+      }));
+    } catch { /* storage full or private mode */ }
+  }, [subject, pool, ans, left, idx]);
+
+  const saveAndExit = () => go({ v: "tests" });
+
+  useEffect(() => {
+    const t = setInterval(() => setLeft((x) => { if (x <= 1) { clearInterval(t); finish(); return 0; } return x - 1; }), 1000);
     return () => clearInterval(t);
   }, [finish]);
+
+  const next = useCallback(() => setIdx((i) => Math.min(pool.length - 1, i + 1)), [pool.length]);
+  const prev = useCallback(() => setIdx((i) => Math.max(0, i - 1)), []);
 
   useEffect(() => {
     const h = (e) => {
@@ -1144,82 +3096,89 @@ function Mock({ subject, pool, go, onFinish }) {
       if (e.target && ["TEXTAREA", "INPUT"].includes(e.target.tagName)) return;
       const li = L.indexOf(e.key.toUpperCase());
       const ni = ["1", "2", "3", "4", "5", "6"].indexOf(e.key);
-      const pick = li >= 0 && li < q.choices.length ? li : ni >= 0 && ni < q.choices.length ? ni : -1;
-      if (pick >= 0) { e.preventDefault(); setAns((p) => ({ ...p, [q.id]: pick })); return; }
-      if (e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); setIdx((i) => Math.min(pool.length - 1, i + 1)); }
-      if (e.key === "ArrowLeft") { e.preventDefault(); setIdx((i) => Math.max(0, i - 1)); }
+      const k = li >= 0 && li < q.choices.length ? li : ni >= 0 && ni < q.choices.length ? ni : -1;
+      if (k >= 0) { e.preventDefault(); return setAns((p) => ({ ...p, [q.id]: k })); }
+      if (e.key === "ArrowRight" || e.key === "Enter") { e.preventDefault(); next(); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [q, pool.length, grid, confirm]);
+  }, [q, grid, confirm, next, prev]);
 
   return (
     <>
-      <div className="pbar"><div className="wrap pbin">
-        <Mark size={22} />
-        <div style={{ fontSize: 13.5, color: "var(--tx2)" }}>
-          <span className="num">{idx + 1}</span> of <span className="num">{pool.length}</span>
-          <span className="hint" style={{ marginLeft: 12 }}>{answered} answered</span>
+      <div className="wrap" style={{ maxWidth: 860 }}>
+        <div className="crumb" style={{ justifyContent: "space-between" }}>
+          <span>Full-length test · AP {SNAME[subject]}</span>
+          <button className="mini" onClick={saveAndExit}>Save and exit</button>
         </div>
-        <div style={{ flex: 1 }} />
-        <div className={"clock" + (left < 300 ? " lowtime" : "")} style={{ fontSize: 16 }}>{mmss(left)}</div>
-        <button className="mini" onClick={() => setGrid(true)}>Review</button>
-        <button className="mini" onClick={() => setConfirm(true)}>Submit</button>
-      </div></div>
+        <div className="timer">
+          <div className={"digits" + (left < 300 ? " lowtime" : "")}>{mmss(left)}</div>
+        </div>
+        <QuestionView q={q} index={idx} total={pool.length} picked={ans[q.id] ?? null} revealed={false}
+          onPick={(i) => setAns((p) => ({ ...p, [q.id]: i }))} saved={savedIds.includes(q.id)}
+          onToggleSave={() => setSavedIds((p) => (p.includes(q.id) ? p.filter((x) => x !== q.id) : [...p, q.id]))} />
+        <div style={{ height: 96 }} />
+      </div>
 
-      <div className="qwrap">
-        <div className="qtag">
-          <span>Mock exam · AP {SNAME[subject]}</span><span className="dv" />
-          <span>Unit {q.unit}</span><span className="dv" />
-          <button className="mini" onClick={() => setFlag((p) => ({ ...p, [q.id]: !p[q.id] }))}>
-            {flag[q.id] ? "Unflag" : "Flag for review"}
+      <div className="pfoot">
+        <div className="pfin">
+          <button className="qcount" onClick={() => setGrid(true)} aria-label="Open the question map">
+            <span className="num">{idx + 1}</span> of <span className="num">{pool.length}</span>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8"
+              strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
           </button>
-        </div>
-        <p className="qstem">{q.stem}</p>
-        <div className="opts">
-          {q.choices.map((c, i) => (
-            <button key={i} className={"opt" + (ans[q.id] === i ? " good" : "")}
-              onClick={() => setAns((p) => ({ ...p, [q.id]: i }))}>
-              <span className="k">{L[i]}</span><span>{c}</span>
-            </button>
-          ))}
-        </div>
-        <div className="actions">
-          <button className="btn ghost" onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}>Back</button>
-          {idx + 1 < pool.length
-            ? <button className="btn" onClick={() => setIdx((i) => i + 1)}>Next</button>
-            : <button className="btn acc" onClick={() => setConfirm(true)}>Finish and score</button>}
-          <span className="hint">No feedback until you submit, same as the real exam.</span>
+          <span style={{ flex: 1 }} />
+          <button className="btn ghost sm" onClick={prev} disabled={idx === 0}>Previous</button>
+          {last
+            ? <button className="btn submit" onClick={() => setConfirm(true)}>Submit test</button>
+            : <button className="btn sm acc" onClick={next}>Next</button>}
         </div>
       </div>
 
       {grid && (
         <div className="sheet" onClick={() => setGrid(false)}>
-          <div className="sheetin" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ fontSize: 20, marginBottom: 6 }}>Question map</h2>
-            <p className="hint" style={{ marginTop: 0, marginBottom: 18 }}>{answered} of {pool.length} answered. A dot marks a flagged question.</p>
-            <div className="qgrid">
-              {pool.map((x, i) => (
-                <button key={x.id} className={"gcell" + (ans[x.id] !== undefined ? " done" : "") + (i === idx ? " now" : "") + (flag[x.id] ? " fl" : "")}
-                  onClick={() => { setIdx(i); setGrid(false); }}>{i + 1}</button>
-              ))}
+          <div className="qmap" onClick={(e) => e.stopPropagation()}>
+            <div className="qmhead">
+              <h2>Question map</h2>
+              <button className="qmx" onClick={() => setGrid(false)} aria-label="Close">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round"><path d="M2 2l10 10M12 2 2 12" /></svg>
+              </button>
             </div>
-            <div className="actions"><button className="btn ghost" onClick={() => setGrid(false)}>Close</button></div>
+            <div className="qmlegend">
+              <span><StatusIcon kind="pend" />Answered</span>
+              <span><span className="rvblank" />Not answered</span>
+              <span><StatusIcon kind="rev" />For review</span>
+              <span className="hint" style={{ fontWeight: 400 }}>{answered} of {pool.length} answered</span>
+            </div>
+            <div className="qmgrid">
+              {pool.map((x, i) => {
+                const done = ans[x.id] !== undefined;
+                return (
+                  <button key={x.id} className={"qmcell" + (done ? " pend" : "") + (i === idx ? " now" : "")}
+                    onClick={() => { setIdx(i); setGrid(false); }} aria-label={`Question ${i + 1}`}>
+                    {i + 1}
+                    {savedIds.includes(x.id) && <span className="qmbadge"><StatusIcon kind="rev" size={16} /></span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
       {confirm && (
         <div className="sheet" onClick={() => setConfirm(false)}>
-          <div className="sheetin" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <h2 style={{ fontSize: 21, marginBottom: 10 }}>Submit the paper?</h2>
+          <div className="sheetin" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <h2 style={{ fontSize: 22, marginBottom: 10 }}>Submit the test?</h2>
             <p style={{ color: "var(--tx2)", fontSize: 14.5, marginTop: 0 }}>
               {answered === pool.length
-                ? "Everything is answered. You will see your score and every explanation next."
+                ? "Every question is answered. You will see your score and every explanation next."
                 : `${pool.length - answered} question${pool.length - answered === 1 ? " is" : "s are"} still blank. Blanks are marked wrong, and there is no guessing penalty on the real exam.`}
             </p>
             <div className="actions">
-              <button className="btn acc" onClick={finish}>Submit</button>
+              <button className="btn submit" onClick={finish}>Submit</button>
               <button className="btn ghost" onClick={() => setConfirm(false)}>Keep working</button>
             </div>
           </div>
@@ -1231,6 +3190,7 @@ function Mock({ subject, pool, go, onFinish }) {
 
 function MockResult({ subject, items, secs, bands, nav }) {
   const { go } = nav;
+  const [openAll, setOpenAll] = useState(false);
   const b = (bands && bands[subject]) || DEFAULT_BANDS[subject];
   const n = items.length;
   const correct = items.filter((i) => i.correct).length;
@@ -1250,12 +3210,12 @@ function MockResult({ subject, items, secs, bands, nav }) {
 
   return (
     <>
-      <Nav nav={nav} active={subject} />
+      
       <div className="wrap" style={{ maxWidth: 940 }}>
         <div className="crumb">
           <button onClick={() => go({ v: "home" })}>Equilibrium</button><span>/</span>
           <button onClick={() => go({ v: "course", subject })}>AP {SNAME[subject]}</button><span>/</span>
-          <span>Mock exam</span>
+          <span>Full-length test</span>
         </div>
 
         <div style={{ display: "flex", gap: 44, alignItems: "flex-end", flexWrap: "wrap", padding: "30px 0 8px" }}>
@@ -1284,21 +3244,6 @@ function MockResult({ subject, items, secs, bands, nav }) {
           </div>
         </div>
 
-        <div className="sechead">Where the bands sit</div>
-        <div className="bands" style={{ maxWidth: 620 }}>
-          {rows.map((r) => (
-            <div key={r.s} className={"bandrow" + (r.s === score ? " on" : "")}>
-              <span className="bs">{r.s}</span>
-              <span>{r.s === 5 ? "Extremely well qualified" : r.s === 4 ? "Well qualified" : r.s === 3 ? "Qualified" : r.s === 2 ? "Possibly qualified" : "No recommendation"}</span>
-              <span className="br">{r.lo}–{r.hi}</span>
-            </div>
-          ))}
-        </div>
-        <p className="hint" style={{ maxWidth: 620, marginTop: 12 }}>
-          College Board sets the raw-to-score conversion after each administration and does not publish it in advance, so these bands are estimates from released exams and recent score distributions. They can be adjusted in the console.
-          {next && ` You are ${next.lo - composite} composite point${next.lo - composite === 1 ? "" : "s"} from a ${next.s}.`}
-        </p>
-
         <div className="sechead">By unit</div>
         {unitRows.map((u) => (
           <div key={u.n} className="abar" style={{ maxWidth: 620 }}>
@@ -1308,30 +3253,17 @@ function MockResult({ subject, items, secs, bands, nav }) {
           </div>
         ))}
 
-        <div className="sechead">Every question</div>
-        <div className="rev">
-          {items.map((it, i) => (
-            <details key={i} className="ritem">
-              <summary>
-                <span className="num" style={{ color: "var(--tx3)", fontSize: 13 }}>{String(i + 1).padStart(2, "0")}</span>
-                <span>{it.q.stem.length > 92 ? it.q.stem.slice(0, 92) + "…" : it.q.stem}</span>
-                <span className={"dot " + (it.correct ? "y" : "n")} />
-              </summary>
-              <div className="rbody">
-                <div className="ln"><b>Correct:</b> {L[it.q.answer]}. {it.q.choices[it.q.answer]}</div>
-                <div className="ln"><b>You chose:</b> {it.picked === null ? "left blank" : `${L[it.picked]}. ${it.q.choices[it.picked]}`}</div>
-                <div className="ln" style={{ marginTop: 12 }}>{it.q.explanation}</div>
-              </div>
-            </details>
-          ))}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <div className="sechead">Every question</div>
+          <button className="mini" onClick={() => setOpenAll((v) => !v)}>{openAll ? "Collapse all" : "Show every explanation"}</button>
         </div>
+        <ReviewList key={String(openAll)} items={items.map((it, i) => ({ ...it, n: i + 1 }))} defaultOpen={openAll} />
 
         <div className="actions" style={{ paddingBottom: 54 }}>
-          <button className="btn acc" onClick={() => go({ v: "course", subject })}>Back to the course</button>
+          <button className="btn acc" onClick={() => go({ v: "tests" })}>Back to full-length tests</button>
           <button className="btn ghost" onClick={() => go({ v: "tutor" })}>Ask the tutor about a question</button>
         </div>
       </div>
-      <Foot />
     </>
   );
 }
@@ -1370,7 +3302,7 @@ function Tutor({ nav }) {
 
   return (
     <>
-      <Nav nav={nav} active="tutor" />
+      
       <div className="wrap" style={{ maxWidth: 860 }}>
         <div className="phead" style={{ paddingTop: 34 }}>
           <div><h1>Ask the tutor</h1>
@@ -1394,7 +3326,6 @@ function Tutor({ nav }) {
         </div>
         <div style={{ height: 46 }} />
       </div>
-      <Foot />
     </>
   );
 }
@@ -1403,10 +3334,10 @@ function Tutor({ nav }) {
    ADMIN
    ============================================================ */
 
-const BLANK_Q = { id: "", subject: "micro", unit: 1, difficulty: "medium", stem: "", choices: ["", "", "", "", ""], answer: 0, explanation: "" };
+const BLANK_Q = { id: "", subject: "micro", unit: 1, topic: "", image: "", difficulty: "medium", stem: "", choices: ["", "", "", "", ""], answer: 0, explanation: "" };
 const BLANK_M = { id: "", subject: "micro", unit: 1, kind: "note", title: "", body: "", url: "" };
 
-function Admin({ bank, setBank, refreshBank, go }) {
+function Admin({ bank, setBank, refreshBank, go, admin }) {
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState(""), [pw, setPw] = useState("");
@@ -1417,7 +3348,7 @@ function Admin({ bank, setBank, refreshBank, go }) {
   useEffect(() => {
     (async () => {
       const { data } = await getSession();
-      setAuthed(Boolean(data?.session));
+      setAuthed(Boolean(data?.session) && (admin || await isAdmin()));
       setChecking(false);
     })();
   }, []);
@@ -1439,7 +3370,11 @@ function Admin({ bank, setBank, refreshBank, go }) {
 
   const tryIn = async () => {
     setBusy(true); setErr("");
-    try { await signIn(email.trim(), pw); setAuthed(true); }
+    try {
+      await signIn(email.trim(), pw);
+      if (await isAdmin()) setAuthed(true);
+      else { await signOut(); setErr("That account does not have console access."); }
+    }
     catch (e) { setErr(e.message === "Invalid login credentials" ? "That email and password don't match." : e.message || "Could not sign in."); }
     setBusy(false);
   };
@@ -1466,7 +3401,7 @@ function Admin({ bank, setBank, refreshBank, go }) {
   return (
     <div className="wrap">
       <div className="navin" style={{ borderBottom: "1px solid var(--line)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Mark size={24} /><span className="wm" style={{ fontSize: 17 }}>Console</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Brand size={17} mark={21} /><span className="wm" style={{ fontSize: 17, marginLeft: 10, color: "var(--tx3)" }}>Console</span></div>
         <span style={{ display: "flex", gap: 8 }}>
           <button className="mini" onClick={() => go({ v: "home" })}>View site</button>
           <button className="mini" onClick={async () => { await signOut(); setAuthed(false); }}>Sign out</button>
@@ -1635,7 +3570,7 @@ function AQuestions({ bank, refreshBank, stats }) {
             const st = stats.byQ[q.id];
             return (
               <div key={q.id} className="qitem">
-                <span className="pill">{q.subject === "micro" ? "MI" : "MA"}·{q.unit}</span>
+                <span className="pill">{q.topic || (q.subject === "micro" ? "MI" : "MA") + "·" + q.unit}{q.image ? " ▣" : ""}</span>
                 <span>{q.stem.length > 90 ? q.stem.slice(0, 90) + "…" : q.stem}</span>
                 <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span className="st num">{st ? `${pct(st.c, st.a)}% of ${st.a}` : "no data"}</span>
@@ -1654,6 +3589,7 @@ function AQuestions({ bank, refreshBank, stats }) {
 
 function QForm({ q, onSave, onCancel }) {
   const [d, setD] = useState(q);
+  const [up, setUp] = useState(false), [imgErr, setImgErr] = useState("");
   const set = (k, v) => setD((p) => ({ ...p, [k]: v }));
   const valid = d.stem.trim() && d.choices.filter((c) => c.trim()).length >= 2 && d.choices[d.answer]?.trim() && d.explanation.trim();
   return (
@@ -1661,17 +3597,52 @@ function QForm({ q, onSave, onCancel }) {
       <h2 style={{ fontSize: 23, marginBottom: 20 }}>{q.stem ? "Edit question" : "New question"}</h2>
       <div className="row3">
         <label className="field"><span>Course</span>
-          <select value={d.subject} onChange={(e) => setD((p) => ({ ...p, subject: e.target.value, unit: 1 }))}>
+          <select value={d.subject} onChange={(e) => setD((p) => ({ ...p, subject: e.target.value, unit: 1, topic: "" }))}>
             <option value="micro">Microeconomics</option><option value="macro">Macroeconomics</option></select></label>
         <label className="field"><span>Unit</span>
-          <select value={d.unit} onChange={(e) => set("unit", Number(e.target.value))}>
+          <select value={d.unit} onChange={(e) => setD((p) => ({ ...p, unit: Number(e.target.value), topic: "" }))}>
             {UNITS[d.subject].map((u) => <option key={u.n} value={u.n}>{u.n}. {u.title}</option>)}</select></label>
         <label className="field"><span>Difficulty</span>
           <select value={d.difficulty} onChange={(e) => set("difficulty", e.target.value)}>
             <option value="easy">easy</option><option value="medium">medium</option><option value="hard">hard</option></select></label>
       </div>
+      <label className="field"><span>Topic — this is what the question bank groups by</span>
+        <select value={d.topic || ""} onChange={(e) => set("topic", e.target.value)}>
+          <option value="">Not set</option>
+          {(TOPICS[d.subject][d.unit] || []).map(([code, title]) => (
+            <option key={code} value={code}>{code} {title}</option>
+          ))}
+        </select></label>
       <label className="field"><span>Question</span>
         <textarea rows={3} value={d.stem} onChange={(e) => set("stem", e.target.value)} /></label>
+
+      <div className="field">
+        <span>Figure — a graph or table, shown under the question</span>
+        {d.image ? (
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <img src={d.image} alt="" style={{ maxWidth: 240, borderRadius: 10, border: "1px solid var(--line)" }} />
+            <button className="mini danger" onClick={() => set("image", "")}>Remove</button>
+          </div>
+        ) : (
+          <>
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (f.size > 4 * 1024 * 1024) { setImgErr("That file is over 4 MB. Shrink it first."); return; }
+                setImgErr(""); setUp(true);
+                try { set("image", await uploadImage(f)); }
+                catch (er) { setImgErr(er.message || "Upload failed. Is the storage bucket set up?"); }
+                setUp(false);
+              }} />
+            {up && <div className="hint" style={{ marginTop: 8 }}><span className="spin" /> Uploading</div>}
+            {imgErr && <div style={{ color: "var(--no)", fontSize: 13, marginTop: 8 }}>{imgErr}</div>}
+            <input type="text" style={{ marginTop: 10 }} value={d.image}
+              onChange={(e) => set("image", e.target.value)} placeholder="…or paste an image URL" />
+          </>
+        )}
+      </div>
+
       <div className="field">
         <span>Answer choices — mark the correct one</span>
         {d.choices.map((c, i) => (
@@ -1700,6 +3671,7 @@ function AGenerate({ bank, refreshBank }) {
   const [subject, setSubject] = useState("micro"), [unit, setUnit] = useState(1);
   const [difficulty, setDifficulty] = useState("medium"), [count, setCount] = useState(5);
   const [topic, setTopic] = useState(""), [busy, setBusy] = useState(false);
+  const [code, setCode] = useState("");
   const [drafts, setDrafts] = useState([]), [err, setErr] = useState("");
   const u = UNITS[subject][unit - 1];
 
@@ -1709,7 +3681,7 @@ function AGenerate({ bank, refreshBank }) {
       const raw = await askClaude([{ role: "user", content:
 `Write ${count} exam-style multiple-choice questions for AP ${SNAME[subject]}, Unit ${unit}: ${u.title}.
 Content of this unit: ${u.blurb}.
-${topic ? `Focus narrowly on: ${topic}.` : ""}
+${code ? `Stay inside CED topic ${code}: ${topicTitle(subject, code)}.` : ""}\n${topic ? `Focus narrowly on: ${topic}.` : ""}
 Difficulty: ${difficulty}.
 
 Rules: five answer choices each; distractors must reflect real student errors, not filler; no "all of the above"; stems under 55 words; explanations 40-80 words saying why the answer is right and why the most tempting wrong choice is wrong.
@@ -1722,7 +3694,7 @@ Return ONLY JSON, no prose and no code fences:
       const parsed = JSON.parse(clean.slice(clean.indexOf("{"), clean.lastIndexOf("}") + 1));
       const list = (parsed.questions || []).filter((x) => x.stem && Array.isArray(x.choices) && x.choices.length >= 2);
       if (!list.length) throw new Error();
-      setDrafts(list.map((x) => ({ ...x, id: uid(), subject, unit, difficulty: x.difficulty || difficulty, answer: Number(x.answer) || 0, _keep: true })));
+      setDrafts(list.map((x) => ({ ...x, id: uid(), subject, unit, topic: code, difficulty: x.difficulty || difficulty, answer: Number(x.answer) || 0, _keep: true })));
     } catch { setErr("The draft came back unreadable. Run it again, or lower the count."); }
     setBusy(false);
   };
@@ -1739,10 +3711,10 @@ Return ONLY JSON, no prose and no code fences:
       <div className="note">Drafts are never published on their own. Review each one, untick anything weak, then add the rest.</div>
       <div className="row3">
         <label className="field"><span>Course</span>
-          <select value={subject} onChange={(e) => { setSubject(e.target.value); setUnit(1); }}>
+          <select value={subject} onChange={(e) => { setSubject(e.target.value); setUnit(1); setCode(""); }}>
             <option value="micro">Microeconomics</option><option value="macro">Macroeconomics</option></select></label>
         <label className="field"><span>Unit</span>
-          <select value={unit} onChange={(e) => setUnit(Number(e.target.value))}>
+          <select value={unit} onChange={(e) => { setUnit(Number(e.target.value)); setCode(""); }}>
             {UNITS[subject].map((x) => <option key={x.n} value={x.n}>{x.n}. {x.title}</option>)}</select></label>
         <label className="field"><span>Difficulty</span>
           <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
@@ -1752,7 +3724,12 @@ Return ONLY JSON, no prose and no code fences:
         <label className="field"><span>How many</span>
           <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
             {[3, 5, 8, 10].map((n) => <option key={n} value={n}>{n} questions</option>)}</select></label>
-        <label className="field" style={{ gridColumn: "span 2" }}><span>Narrow the topic (optional)</span>
+        <label className="field"><span>CED topic</span>
+          <select value={code} onChange={(e) => setCode(e.target.value)}>
+            <option value="">Spread across the unit</option>
+            {(TOPICS[subject][unit] || []).map(([c, t]) => <option key={c} value={c}>{c} {t}</option>)}
+          </select></label>
+        <label className="field"><span>Narrow it further (optional)</span>
           <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="price ceilings and deadweight loss" /></label>
       </div>
       <div className="actions" style={{ marginTop: 4 }}>
@@ -1851,19 +3828,21 @@ function ASettings({ bank, refreshBank, reload }) {
 
   const exportAll = () => setIo(JSON.stringify({ questions: bank.questions, materials: bank.materials }, null, 2));
 
-  const importAll = async () => {
+  const importAll = async (text) => {
     setBusy(true);
     try {
-      const raw = JSON.parse(io);
+      const raw = JSON.parse(typeof text === "string" ? text : io);
       const qArr = Array.isArray(raw) ? raw : raw.questions || [];
       const mArr = Array.isArray(raw) ? [] : raw.materials || [];
       const qs = qArr.filter((q) => q && q.stem && Array.isArray(q.choices)).map((q) => ({
         id: q.id || uid(), subject: q.subject === "macro" ? "macro" : "micro",
         unit: Math.min(6, Math.max(1, Number(q.unit) || 1)),
+        topic: typeof q.topic === "string" ? q.topic : "",
         difficulty: ["easy", "medium", "hard"].includes(q.difficulty) ? q.difficulty : "medium",
         stem: String(q.stem), choices: q.choices.map(String),
         answer: Math.min(q.choices.length - 1, Math.max(0, Number(q.answer) || 0)),
         explanation: String(q.explanation || ""),
+        image: typeof q.image === "string" ? q.image : "",
       }));
       const ms = mArr.filter((m) => m && m.title).map((m) => ({
         id: m.id || uid(), subject: m.subject === "macro" ? "macro" : "micro",
@@ -1926,7 +3905,17 @@ function ASettings({ bank, refreshBank, reload }) {
       <textarea rows={9} value={io} onChange={(e) => setIo(e.target.value)} placeholder='{"questions":[…],"materials":[…]}' />
       <div className="actions" style={{ marginTop: 12 }}>
         <button className="btn sm ghost" onClick={exportAll}>Export everything</button>
-        <button className="btn sm" onClick={importAll} disabled={!io.trim() || busy}>{busy ? <><span className="spin" /> Importing</> : "Import"}</button>
+        <button className="btn sm" onClick={() => importAll()} disabled={!io.trim() || busy}>{busy ? <><span className="spin" /> Importing</> : "Import pasted text"}</button>
+        <label className="btn sm ghost" style={{ cursor: "pointer" }}>
+          Import from a file
+          <input type="file" accept=".json,application/json" style={{ display: "none" }}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              importAll(await f.text());
+              e.target.value = "";
+            }} />
+        </label>
       </div>
 
       <div className="sechead">Student results</div>
